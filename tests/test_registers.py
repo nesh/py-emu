@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding:utf-8
 
 import os, sys
 import unittest
@@ -17,10 +17,10 @@ class RegisterTest(unittest.TestCase):
     """ registers -- pyre python """
     def setUp(self):
         self.reg = Register16_8(0x1234)
-        
+
     def tearDown(self):
         pass
-        
+
     def test_r16(self):
         """ register: 16b """
         self.assertEquals(self.reg.value, 0x1234)
@@ -29,7 +29,7 @@ class RegisterTest(unittest.TestCase):
         """ register: 16b overflow """
         self.reg.value = 0x123456
         self.assertEquals(self.reg.value, 0x3456)
-    
+
     def test_r8(self):
         """ register: 8b hi/low """
         self.assertEquals(self.reg.hi, 0x12)
@@ -52,10 +52,10 @@ class CRegisterTest(unittest.TestCase):
     """ registers -- ctypes """
     def setUp(self):
         self.reg = CRegister16_8(0x1234)
-        
+
     def tearDown(self):
         pass
-        
+
     def test_r16(self):
         """ cregister: 16b """
         ret = 0x1234
@@ -77,7 +77,7 @@ class CRegisterTest(unittest.TestCase):
         """ cregister: 16b overflow """
         self.reg.word = 0x123456
         self.assertEquals(self.reg.word, 0x3456)
-    
+
     def test_r8(self):
         """ cregister: 8b hi/low """
         hi = 0x12

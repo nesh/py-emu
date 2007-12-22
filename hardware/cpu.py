@@ -8,18 +8,15 @@ class CPUException(Exception):
 class CPUTrapInvalidOP(CPUException):
     pass
 
-# Events
-class CPUIncT:
-    pass
+# signals
+cpu_inc_t = object()
+cpu_reset = object()
+cpu_irq = object()
+cpu_nmi = object()
 
-class CPUReset:
-    pass
-
-class CPUIRQ:
-    pass
-
-class CPUNMI:
-    pass
+def _add_cycles(instance=None, num=0):
+    instance.T -= num
+    instance.abs_T += num
 
 class CPU(Device):
     def __init__(self, break_after, mem, io=None):
@@ -32,8 +29,10 @@ class CPU(Device):
         super(CPU, self).__init__()
         
         self._op = self._opcodes()
+        self.current_op = None
+        
         # register handler
-        connect(self.add_cycles, CPUIncT, weak=False)
+        connect(_add_cycles, cpu_inc_t, sender=self.__class__)
     
     def _opcodes(self):
         """
@@ -43,29 +42,48 @@ class CPU(Device):
             3 address handler
             4 mnemo
         """
-        raise NotImplementedError('%s._opcodes() is not implemented' % self.__class__)
-        
-    def add_cycles(self, num):
-        self.T -= num
-        self.abs_T += num
-        
+        # main table
+        ret = []
+        for x in range(0x100):
+            ret.append((0, 1, self._invalid_op, None, 'BUG $%02X' % x))
+        return ret
+    
+    def _read_op(self):
+        raise NotImplementedError('%s._read_op() is not implemented' % self.__class__)
+
     def run(self, cycles=None):
-        raise NotImplementedError('%s.run() is not implemented' % self.__class__)
+        if cycles is None:
+            # run one inst
+            self.current_op = self._read_op()
+            op = self._op[self.current_op]
+            op[2](op[3])
+            self.abs_T += op[0]
+            self.T -= op[0]
+            return
+
+        # run until we spend all cycles
+        self.T += cycles
+        while self.T >= 0:
+            self.current_op = self._read_op()
+            op = self._op[self.current_op]
+            op[2](op[3])
+            self.abs_T += op[0]
+            self.T -= op[0]
         
-    def _invalid_op(self, code, *args, **kwargs):
-        raise CPUTrapInvalidOP('$%X' % code)
+    def _invalid_op(self, read):
+        raise CPUTrapInvalidOP('$%X' % self.current_op)
 
     def get_state(self):
         """get cpu state
 
-           return hash with current cpu state
+           return dict with current cpu state
         """
         raise NotImplementedError('%s.get_state() is not implemented' % self.__class__)
 
     def set_state(self, state):
         """set cpu state
 
-           set current cpu state
+           set current cpu state with state dict
         """
         raise NotImplementedError('%s.set_state() is not implemented' % self.__class__)
         

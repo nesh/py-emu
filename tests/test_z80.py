@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding:utf-8 
 
 import os, sys
 import unittest
@@ -34,17 +34,17 @@ class Z80FlagsTest(unittest.TestCase):
         """ Z80Flags: Z """
         self.f.flag.Z = 1
         self.assertEquals(self.f.byte, Z80.Z)
-        
+
     def test_F5(self):
         """ Z80Flags: F5 """
         self.f.flag.F5 = 1
         self.assertEquals(self.f.byte, Z80.F5)
-        
+
     def test_H(self):
         """ Z80Flags: H """
         self.f.flag.H = 1
         self.assertEquals(self.f.byte, Z80.H)
-        
+
     def test_F3(self):
         """ Z80Flags: F3 """
         self.f.flag.F3 = 1
@@ -54,12 +54,12 @@ class Z80FlagsTest(unittest.TestCase):
         """ Z80Flags: V """
         self.f.flag.V = 1
         self.assertEquals(self.f.byte, Z80.V)
-    
+
     def test_N(self):
         """ Z80Flags: N """
         self.f.flag.N = 1
         self.assertEquals(self.f.byte, Z80.N)
-    
+
     def test_C(self):
         """ Z80Flags: C """
         self.f.flag.C = 1
@@ -86,22 +86,22 @@ class Z80Test(unittest.TestCase):
     def setUp(self):
         self.m = RAM(16, 8)
         self.c = Z80(1, self.m)
-        
+
     def tearDown(self):
         pass
-    
+
     def test_reset(self):
         """ Z80: reset """
         self.c.reset()
         self.assertEquals(self.c.AF.word, 0xFFFF)
         self.assertEquals(self.c.SP.word, 0xFFFF)
         self.assertEquals(self.c.PC.word, 0x0000)
-        
+
         self.assertEquals(self.c.I.byte, 0x00)
         self.assertEquals(self.c.R.byte, 0x00)
-        
+
         self.assertEquals(self.c.IM, Z80.IM0)
-        
+
         self.assertEquals(self.c.IFF1, False)
         self.assertEquals(self.c.IFF2, False)
         self.assertEquals(self.c.HALT, False)
@@ -127,7 +127,7 @@ class Z80Test(unittest.TestCase):
         self.assertEquals(r.word, 0x1234)
         self.assertEquals(r.byte.hi, 0x12)
         self.assertEquals(r.byte.lo.byte, 0x34)
-        
+
     def test_regsF(self):
         """ Z80: register F"""
         self.c.AF.word = 0x561234
@@ -171,15 +171,14 @@ class TestData(object):
         self.test = test
         self.test_in = self.make_in('%s.in' % test)
         self.test_out = self.make_out('%s.out' % test)
-    #
-    
+
     def __repr__(self):
         return '<%s.in>' % self.test
 
     def make_out(self, fn):
         ret = {}
         ret['regs'] = {}
-        
+
         # read MC
         fh = StringIO.StringIO(self.bytes_out)
         ln = fh.readline()
@@ -189,12 +188,12 @@ class TestData(object):
             ln = fh.readline()
             # TODO: read MC steps
         #
-        
+
         # read regs, etc
         ln = ln.strip()
-        
+
         regs = ln.split(' ')
-        
+
         ret['regs']['af'] = tohex(regs[0])
         ret['regs']['bc'] = tohex(regs[1])
         ret['regs']['de'] = tohex(regs[2])
@@ -207,23 +206,23 @@ class TestData(object):
         ret['regs']['iy'] = tohex(regs[9])
         ret['regs']['sp'] = tohex(regs[10])
         ret['regs']['pc'] = tohex(regs[11])
-        
+
         ln = fh.readline().strip()
         regs = ln.split()
-        
+
         ret['regs']['i'] = tohex(regs[0])
         ret['regs']['r'] = tohex(regs[1])
         ret['regs']['iff1'] = tohex(regs[2]) != 0
         ret['regs']['iff2'] = tohex(regs[3]) != 0
         ret['inHalt'] = tohex(regs[4]) != 0
         ret['icount'] = int(regs[6])
-        
+
         ret['mem'] = {}
         for ln in fh:
             ln = ln.strip()
-            
+
             if ln == '': continue
-            
+
             by = ln.split()
             adr = tohex(by[0])
             m = []
@@ -235,17 +234,16 @@ class TestData(object):
 
         fh.close()
         return ret
-    #
-    
+
     def make_in(self, fn):
         ret = {}
         ret['regs'] = {}
         fh = StringIO.StringIO(self.bytes_in)
-        
+
         ln = fh.readline().strip()
         if not ln: return
         regs = ln.split(' ')
-        
+
         ret['regs']['af'] = tohex(regs[0])
         ret['regs']['bc'] = tohex(regs[1])
         ret['regs']['de'] = tohex(regs[2])
@@ -258,25 +256,25 @@ class TestData(object):
         ret['regs']['iy'] = tohex(regs[9])
         ret['regs']['sp'] = tohex(regs[10])
         ret['regs']['pc'] = tohex(regs[11])
-    
+
         ln = fh.readline().strip()
         regs = ln.split()
-        
+
         ret['regs']['i'] = tohex(regs[0])
         ret['regs']['r'] = tohex(regs[1])
         ret['regs']['iff1'] = tohex(regs[2]) != 0
         ret['regs']['iff2'] = tohex(regs[3]) != 0
         ret['inHalt'] = tohex(regs[4]) != 0
-        
+
         ret['im'] = 0
         ret['icount'] = 0
-        
+
         ret['mem'] = {}
         for ln in fh:
             ln = ln.strip()
-            
+
             if ln == '': continue
-            
+
             by = ln.split()
             adr = tohex(by[0])
             m = []
@@ -287,9 +285,8 @@ class TestData(object):
             ret['mem'][adr] = m
         # for
         fh.close()
-        
+
         return ret
-    
 
 def _cpu_test(code, data):
     """ CPU instruction test """
@@ -305,9 +302,9 @@ def _cpu_test(code, data):
             a += len(l)
     cpu.reset()
     cpu.set_state(data.test_in['regs'])
-    
+
     print cpu.disassemble(0)
-    
+
     try:
         cpu.run(data.test_out['icount'])
     except CPUException, err:
@@ -352,7 +349,6 @@ def test_cpu():
         if '_' in nn:
             nn = nn[:-2] # strip _x
         code = int('0x%s' % nn, 16)
-        # TODO OUT FILE!!!
         data = TestData(zf.read(name), zf.read('%s.out' % n), n, code)
         yield _cpu_test, code, data
 

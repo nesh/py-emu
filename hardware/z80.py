@@ -52,7 +52,7 @@ class Z80R(ctypes.Structure):
 
 
 # Parity table for 256 bytes (True = even parity, False = odd parity)
-P_TABLE = [
+P_TABLE = (
     True, False, False, True, False, True, True, False, False, True, True, False, True, False, False, True,
     False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False,
     False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False,
@@ -69,19 +69,19 @@ P_TABLE = [
     False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False,
     False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False,
     True, False, False, True, False, True, True, False, False, True, True, False, True, False, False, True,
-]
+)
 
 # Half carry table (addition)
-ADD_H_TABLE = [ False, False, True, False, True, False, True, True ]
+ADD_H_TABLE = (False, False, True, False, True, False, True, True)
 
 # Half carry table (subtraction).
-SUB_H_TABLE = [ False, True, True, True, False, False, False, True ]
+SUB_H_TABLE = (False, True, True, True, False, False, False, True)
 
 # Overflow table (addition).
-ADD_V_TABLE = [ False, True, False, False, False, False, True, False ]
+ADD_V_TABLE = (False, True, False, False, False, False, True, False)
 
 # Overflow table (subtraction)
-SUB_V_TABLE  = [ False, False, False, True, True, False, False, False ]
+SUB_V_TABLE  = (False, False, False, True, True, False, False, False)
 
 class Z80(CPU):
     RESET_VECTOR = 0x0000
@@ -198,7 +198,9 @@ class Z80(CPU):
             elif reg in Z80.BIT_1:
                 r = not not val
                 print '%s\t=\t%s' % (reg, r)
-                
+
+    # dissasembler
+
     def _dis_instr(self, opcode, address, mnemo, prefix='$'):
         """
             # - word
@@ -270,6 +272,9 @@ class Z80(CPU):
         self.F.flag.F5 = not not (((work32 >> 8) & 0xFF) & Z80.F5)
         self.F.flag.F3 = not not (((work32 >> 8) & 0xFF) & Z80.F3)
 
+    def _bc_ind(self):
+        return int(self.mem.read(self.BC.word))
+
     # OPCODES
     def _opcodes(self):
         """
@@ -296,6 +301,8 @@ class Z80(CPU):
         ret[0x07] = (4, 1, self.rlca, None, 'rlca')
         ret[0x08] = (4, 1, self.ex_af_af1, None, "ex af,af'")
         ret[0x09] = (11, 1, self.add_hl_bc, None, "add hl, bc'")
+        ret[0x0A] = (7, 1, self.ld_a, self._bc_ind, "ld a,(bc)'")
+        ret[0x0B] = (6, 1, self.dec_bc, None, "dec bc'")
         
         return ret
 
@@ -333,3 +340,9 @@ class Z80(CPU):
         
     def add_hl_bc(self, adr_handler):
         self.add_hl(self.BC.word)
+        
+    def ld_a(self, adr_handler):
+        self.AF.byte.hi = adr_handler()
+        
+    def dec_bc(self, adr_handler):
+        self.BC.word -= 1

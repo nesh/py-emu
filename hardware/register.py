@@ -4,6 +4,8 @@ try:
     from psyco import compact
     from psyco.classes import __metaclass__
 except ImportError:
+    import sys
+    print >>sys.stderr, 'No psyco'
     class compact(object):
         pass
 
