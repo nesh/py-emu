@@ -52,6 +52,12 @@ class MOS6502Test(unittest.TestCase):
     def tearDown(self):
         pass
     
+    def test_base(self):
+        """ MOS6502: base test """
+        for x in range(0x100):
+            #print 'check code %02X -- %s' % (x, self.c._mnemonic(x))
+            self.assert_(x in self.c._op, 'missing code %02X' % x)
+    
     def test_bo(self):
         """ MOS6502: test byteorder r/w """
         self.m.write(0x215F, 0x76)
@@ -74,125 +80,8 @@ class MOS6502Test(unittest.TestCase):
         self.assertEquals(self.c.S, 0xFF)
         self.assertEquals(self.c.P.get(), 0x20)
         self.assertEquals(self.c.PC, 0x3076)
-    
-    def test_am_1(self):
-        """ MOS6502: AM -- Immediate """
-        self.c.PC = 0x215F
-        self.m.write(0x215F, 0x0A)
-        
-        self.assertEquals(self.c._read_immediate(), 0x0A)
-        self.assertEquals(self.c.PC, 0x215F + 1)
-    
-    def test_am_2(self):
-        """ MOS6502: AM -- Absolute """
-        self.c.PC = 0x215F
-        self.c.write_word(0x215F, 0x31F6)
-        self.m.write(0x31F6, 0xAA)
-        
-        self.assertEquals(self.c._read_absolute(), 0xAA)
-        self.assertEquals(self.c.PC, 0x215F + 2)
-    
-    def test_am_3(self):
-        """ MOS6502: AM -- Absolute zero page """
-        self.c.PC = 0x215F
-        self.c.write_word(0x215F, 0x31)
-        self.m.write(0x31, 0xAA)
-        
-        self.assertEquals(self.c._read_zero_page(), 0xAA)
-        self.assertEquals(self.c.PC, 0x215F + 1)
-    
-    def test_am_6(self):
-        """ MOS6502: AM -- Absolute indexed X/Y """
-        self.c.PC = 0x215F
-        self.c.write_word(0x215F, 0x31F6)
-        self.c.X = 0x10
-        self.m.write(0x31F6 + self.c.X, 0xAA)
-        
-        self.assertEquals(self.c._read_indexed_x(), 0xAA)
-        self.assertEquals(self.c.PC, 0x215F + 2)
-        
-        self.c.PC = 0x215F
-        self.c.Y = 0x10
-        self.m.write(0x31F6 + self.c.Y, 0xBB)
-        
-        self.assertEquals(self.c._read_indexed_y(), 0xBB)
-        self.assertEquals(self.c.PC, 0x215F + 2)
-    
-    def test_am_6a(self):
-        """ MOS6502: AM -- Absolute indexed X/Y page crossed"""
-        # TODO: 1T increase at page crossing
-        pass
-    
-    def test_am_8(self):
-        """ MOS6502: AM -- Indirect """
-        self.c.PC = 0x0000
-        self.c.write_word(0x0000, 0x215F)
-        self.c.write_word(0x215F, 0x3076)
-        
-        self.assertEquals(self.c._read_indirect(), 0x3076)
-        self.assertEquals(self.c.PC, 2)
-    
-    def test_am_9(self):
-        """ MOS6502: AM -- Pre-indexed indirect X """
-        self.c.X = 0x05
-        self.c.PC = 0x0042
-        self.m.write(0x0042, 0x3E)
-        self.c.write_word(0x0043, 0x2415)
-        self.m.write(0x2415, 0x6E)
-        
-        self.assertEquals(self.c._read_pre_indirect(), 0x6E)
-        self.assertEquals(self.c.PC, 0x43)
-        
-        self.c.X = 0x05
-        self.c.PC = 0x0042
-        self.m.write(0x0042, 0xFF)
-        self.c.write_word(0x0004, 0x2416) # 0xFF + 0x05
-        self.m.write(0x2416, 0x6E)
-        
-        self.assertEquals(self.c._read_pre_indirect(), 0x6E)
-        self.assertEquals(self.c.PC, 0x43)
-    
-    
-    def test_am_10(self):
-        """ MOS6502: AM -- Post-indexed indirect Y """
-        self.c.Y = 0x05
-        self.c.PC = 0x0042
-        self.m.write(0x0042, 0x4C)
-        self.c.write_word(0x004C, 0x2100)
-        self.m.write(0x2105, 0x6D)
-        
-        self.assertEquals(self.c._read_post_indirect(), 0x6D)
-        self.assertEquals(self.c.PC, 0x43)
-    
-    def test_am_11_f(self):
-        """ MOS6502: AM -- Relative """
-        
-        # forward
-        self.c.PC = 0x1121
-        self.m.write(self.c.PC, 0x27)
-        
-        self.assertEquals(self.c._read_relative(), 0x1149) # 0x1122 + 0x27 (0xA7 = 39)
-        self.assertEquals(self.c.PC, 0x1122)
-        
-        self.c.PC = 0xFFFF
-        self.m.write(self.c.PC, 0x27)
-        
-        self.assertEquals(self.c._read_relative(), 0x0027)
-        self.assertEquals(self.c.PC, 0x0000)
-        
-        # back
-        self.c.PC = 0x1121
-        self.m.write(self.c.PC, 0xA7)
-        
-        self.assertEquals(self.c._read_relative(), 0x10FB) # 0x1122 + 0xA7 (0xA7 = -39)
-        self.assertEquals(self.c.PC, 0x1122)
-        
-        self.c.PC = 0x0000
-        self.m.write(self.c.PC, 0xA7)
-        
-        self.assertEquals(self.c._read_relative(), 0xFFDA)
-        self.assertEquals(self.c.PC, 0x0001)
-        
+
+
 
 class MOS6502_ADC(unittest.TestCase):
     def setUp(self):
@@ -214,7 +103,7 @@ class MOS6502_ADC(unittest.TestCase):
         self.assertEquals(self.c.P.c, False)
         self.assertEquals(self.c.PC, 0x0002)
         self.assertEquals(self.c.abs_T, 2)
-
+    
     def test_adc_c(self):
         self.m[0x00] = 0x69
         self.m[0x01] = 20
@@ -222,14 +111,14 @@ class MOS6502_ADC(unittest.TestCase):
         self.c.run()
         self.assertEquals(self.c.A, 31)
         self.assertEquals(self.c.P.c, False)
-
+    
     def test_adc_ovf(self):
         self.m[0x00] = 0x69
         self.m[0x01] = 0xFF
         self.c.run()
         self.assertEquals(self.c.A, 9)
         self.assertEquals(self.c.P.c, True)
-
+    
     def test_adc_z(self):
         self.m[0x00] = 0x69
         self.c.A = 0x10
