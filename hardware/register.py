@@ -45,7 +45,7 @@ class CRegister8(ctypes.Structure):
 class Register16_8(compact):
     def __init__(self, val=random.randint(0, 0xFFFF)):
         self._value = val
-    
+
     def _get(self):
         return self._value
     def _set(self, val):
@@ -63,4 +63,3 @@ class Register16_8(compact):
     def _set_lo(self, val):
         self._value = (self._value & 0xFF00) | (val & 0xFF)
     lo = property(fget=_get_lo, fset=_set_lo)
-    
