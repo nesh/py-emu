@@ -18,12 +18,16 @@ from hardware.cpu import (
 from tables import *
 from dasm import *
 from flags import *
+from ld8 import *
 
 __all__ = ('Z80Flags', 'Z80',)
 
-class Z80(CPU, DasmMixin):
+class Z80(CPU, Z80_8BitLoad):
+    IM0, IM1, IM0_1 = range(0, 3)
+    
     def __init__(self, break_afer, mem, io=None):
         self.F = Z80Flags()
+        self.last_prefix = None
         
         super(Z80, self).__init__(break_afer, mem, io)
         # shortcuts
@@ -32,73 +36,89 @@ class Z80(CPU, DasmMixin):
         
         # additional tables
         self._cb_op = {}
+        self._xx_op = {}
+        self._ed_op = {}
         
         # reg setup
         self.reset()
         
         # init opcodes
-        #self._create_8b_load()
-        #self.register_opcodes()
+        self._op[0xCB] = self.cb
+        self._xx_op[0xCB] = self.ddcb
+        self._op[0xED] = self.ed
+        self._op[0xDD] = self.dd
+        self._op[0xFD] = self.fd
+        # other
+        self.register_opcodes()
     
+    def ddcb(self):
+        offset = as_signed(self.read_op())
+        op = self.read_op()
+        t = CYCLES_XXCB[op]
+        self._xcb_op[op]('IX', offset)
+        self.abs_T += t
+        self.T -= t
+        
+    def fdcb(self):
+        offset = as_signed(self.read_op())
+        op = self.read_op()
+        t = CYCLES_XXCB[op]
+        self._xcb_op[op]('IY', offset)
+        self.abs_T += t
+        self.T -= t
+
+    def dd(self):
+        op = self.read_op()
+        t = CYCLES_XX[op]
+        self._xx_op[op]('IX')
+        self.abs_T += t
+        self.T -= t
+
+    def fd(self):
+        op = self.read_op()
+        t = CYCLES_XX[op]
+        self._xx_op[op]('IY')
+        self.abs_T += t
+        self.T -= t
+
+    def ed(self):
+        op = self.read_op()
+        t = CYCLES_ED[op]
+        self._ed_op[op]()
+        self.abs_T += t
+        self.T -= t
+
+    def cb(self):
+        op = self.read_op()
+        t = CYCLES_CB[op]
+        self._cb_op[op]()
+        self.abs_T += t
+        self.T -= t
+
     def disassemble(self, address, instruction_count=1, dump_adr=True, dump_hex=True):
-        s, ln = self.dasm(address)
+        s, ln = dasm(address, self.read)
         hx = []
         for o in range(ln):
             hx.append('%02X' % self.read(address + o))
         return '%04X %s: %s' % (address, ''.join(hx), s)
     
-    def run_one(self):
-        rdop = self.read_op # shortcut
-        
-        old_pc = self.PC
-        byte = rdop()
-
-        t = CYCLES[byte]
-        self.abs_T += t
-        self.T -= t
-        
-        # shortcuts
-        rd = self.read
-        wr = self.write
-        x, y, z, p, q = break_opcode(byte)
-
-        if x == 0:
-            if z == 6:
-                n = rdop()
-                setattr(self, OP_R_A[y], n)
-                return
-        if x == 1:
-            if (z == 6) and (y == 6):
-                pass
-                # ret.append('HALT') # special case, replaces LD (HL), (HL)
-            else:
-                setattr(self, OP_R_A[y], getattr(self, OP_R_A[z]))
-                return
-
-        raise CPUTrapInvalidOP('Invalid opcode %02X: %s' % (byte, self.disassemble(old_pc)))
-        
     def run(self, cycles=0):
         # run until we spend all cycles
         # TODO IRQs
         self.T += cycles
+        
         while self.T >= 0:
-            op = self.current_op = self.read_op()
-            #print '%02X' % op
-            if op == 0xCB:
-                op = self.current_op = self.read_op()
-                try:
-                    self._cb_op[op]()
-                except KeyError:
-                    raise CPUTrapInvalidOP('invalid op 0x%04X: 0xCB%02X' % (self.PC, op))
-            else:
-                try:
-                    self._op[op]()
-                except KeyError:
-                    raise CPUTrapInvalidOP('invalid op 0x%04X: 0x%02X' % (self.PC, op))
-                t = CYCLES[op]
+            old_pc = self.PC
+            op = self.read_op()
+            t = CYCLES[op]
+            
+            try:
+                self._op[op]()
+            except KeyError:
+                raise CPUTrapInvalidOP('Invalid opcode %02X: %s' % (op, self.disassemble(old_pc)))
             self.abs_T += t
             self.T -= t
-
+    
     # =================
     # = mem I/O stuff =
     # =================
@@ -152,6 +172,11 @@ class Z80(CPU, DasmMixin):
         return ret
     
     def reset(self):
+        self.last_prefix = None
+        
+        self.IM = Z80.IM0
+        self.HALT = False
+        
         # FIXME real reset values!
         self.AF = 0xFFFF
         self.BC = 0x0000
@@ -220,7 +245,7 @@ class Z80(CPU, DasmMixin):
     def _sHLind(self, val):
         self.write(self.HL, val)
     HL_ind = property(fget=_gHLind, fset=_sHLind)
-
+    
     # index lo/hi
     def _gIXL(self):
         return self.IX & 0xFF
@@ -247,4 +272,4 @@ class Z80(CPU, DasmMixin):
     IYH = property(fget=_gIYH, fset=_sIYH)
     
     def register_opcodes(self):
-        pass
+        self._create_8b_load()
