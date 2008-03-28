@@ -1,0 +1,6 @@
+:mod:`Z80`
+=============
+
+.. module:: Z80
+   :synopsis: Z80 cpu core.
+.. moduleauthor:: Djordjevic Nebojsa <djnesh@gmail.com>
