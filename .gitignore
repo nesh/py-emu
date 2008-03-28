@@ -1,5 +1,6 @@
 .DS_Store
-.pyc
-.pyo
+*.pyc
+*.pyo
+*.log
 # private data dir
 private
