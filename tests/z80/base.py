@@ -14,7 +14,8 @@ REGS_SRC = {
 }
 
 REG_8B = ('A', 'B', 'C', 'D', 'E', 'H', 'L')
-REG_16B = ('AF', 'BC', 'DE', 'HL')
+RP = ('BC', 'DE', 'HL', 'SP')
+RP2 = ('BC', 'DE', 'HL', 'AF')
 
 class BaseZ80Test(unittest.TestCase):
     def setUp(self):

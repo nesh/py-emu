@@ -12,6 +12,7 @@ if ROOT not in sys.path:
 
 from z80.base import *
 from z80.ld8 import *
+from z80.ld16 import *
 
 # =======
 # = RUN =
