@@ -37,6 +37,7 @@ class Z80(CPU, Z80_8BitLoad):
         # additional tables
         self._cb_op = {}
         self._xx_op = {}
+        self._xxcb_op = {}
         self._ed_op = {}
         
         # reg setup
@@ -44,28 +45,21 @@ class Z80(CPU, Z80_8BitLoad):
         
         # init opcodes
         self._op[0xCB] = self.cb
-        self._xx_op[0xCB] = self.ddcb
+        self._xx_op[0xCB] = self.xxcb
         self._op[0xED] = self.ed
         self._op[0xDD] = self.dd
         self._op[0xFD] = self.fd
         # other
         self.register_opcodes()
     
-    def ddcb(self):
+    def xxcb(self, reg):
         offset = as_signed(self.read_op())
         op = self.read_op()
         t = CYCLES_XXCB[op]
-        self._xcb_op[op]('IX', offset)
+        self._xxcb_op[op](reg, offset)
         self.abs_T += t
         self.T -= t
         
-    def fdcb(self):
-        offset = as_signed(self.read_op())
-        op = self.read_op()
-        t = CYCLES_XXCB[op]
-        self._xcb_op[op]('IY', offset)
-        self.abs_T += t
-        self.T -= t
 
     def dd(self):
         op = self.read_op()
@@ -95,12 +89,16 @@ class Z80(CPU, Z80_8BitLoad):
         self.abs_T += t
         self.T -= t
 
-    def disassemble(self, address, instruction_count=1, dump_adr=True, dump_hex=True):
-        s, ln = dasm(address, self.read)
-        hx = []
-        for o in range(ln):
-            hx.append('%02X' % self.read(address + o))
-        return '%04X %s: %s' % (address, ''.join(hx), s)
+    def disassemble(self, address, instruction_count=1, dump_adr=True, dump_hex=True, bytes=1):
+        ret = []
+        while bytes > 0:
+            s, ln = dasm(address, self.read)
+            hx = []
+            for o in range(ln):
+                hx.append('%02X' % self.read(address + o))
+            ret.append('%04X %s: %s' % (address, ''.join(hx), s))
+            bytes -= ln
+        return '\n'.join(ret)
     
     def run(self, cycles=0):
         # run until we spend all cycles
@@ -171,6 +169,17 @@ class Z80(CPU, Z80_8BitLoad):
         self.PC = (self.PC + 2) & 0xFFFF
         return ret
     
+    def __str__(self):
+        ret = []
+        ret.append('PC: %04X AF: %04X BC: %04X DE: %04X HL: %04X IX: %04X IY: %04X SP: %04X' %\
+                    (self.PC, self.AF, self.BC, self.DE, self.HL, self.IX, self.IY, self.SP)
+                  )
+        ret.append('I: %02X R: %02X IFF1: %s IFF2: %s IM: %s T: %d' % (
+                    self.I, self.R, self.IFF1, self.IFF2, self.IM, self.abs_T
+                  ))
+        ret.append('F: %s' % self.F)
+        return '\n'.join(ret)
+
     def reset(self):
         self.last_prefix = None
         
@@ -271,5 +280,35 @@ class Z80(CPU, Z80_8BitLoad):
         self.IY = ((val & 0xFF) * 256) + (self.IY & 0xFF)
     IYH = property(fget=_gIYH, fset=_sIYH)
     
+    # ====================
+    # = Standard opcodes =
+    # ====================
+    
+    def nop(self):
+        pass
+    
     def register_opcodes(self):
         self._create_8b_load()
+        # ============
+        # = standard =
+        # ============
+        self._op[NOP] = self.nop
+
+    def get_state(self):
+        """get cpu state
+
+           return dict with current cpu state
+        """
+        raise NotImplementedError('%s.get_state() is not implemented' % self.__class__)
+
+    def set_state(self, state):
+        """set cpu state
+
+           set current cpu state with state dict
+        """
+        for k, v in state.items():
+            k = k.upper()
+            if k != 'F':
+                setattr(self, k, v)
+            else:
+                self.F.byte = v
