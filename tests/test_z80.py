@@ -10,8 +10,18 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from hardware.Z80.z80 import Z80, Z80Flags, REGS_SRC
+from hardware.Z80.z80 import Z80, Z80Flags
 from hardware.memory import RAM
+
+REGS_SRC = {
+    0x07: 'A',
+    0x00: 'B',
+    0x01: 'C',
+    0x02: 'D',
+    0x03: 'E',
+    0x04: 'H',
+    0x05: 'L',
+}
 
 class BaseZ80Test(unittest.TestCase):
     def setUp(self):
@@ -21,6 +31,29 @@ class BaseZ80Test(unittest.TestCase):
     
     def tearDown(self):
         pass
+
+    def err(self, msg='FAIL', start=0x0000, len_=1):
+        return '%s: %s' % (self.c.disassemble(start), msg)
+    
+    def eq(self, op1, op2, msg='FAIL', start=0x0000, len_=1):
+        msg = '%s: %s != %s' % (msg, op1, op2)
+        self.assertEquals(op1, op2, self.err(msg, start, len_))
+
+    def eq_8b(self, op1, op2, msg='FAIL', start=0x0000, len_=1):
+        msg = '%s: %02Xh != %02Xh' % (msg, op1, op2)
+        self.assertEquals(op1, op2, self.err(msg, start, len_))
+    
+    def eq_16b(self, op1, op2, msg='FAIL', start=0x0000, len_=1):
+        msg = '%s: %02Xh != %02Xh' % (msg, op1, op2)
+        self.assertEquals(op1, op2, self.err(msg, start, len_))
+
+    def check_pc(self, val, start=0x0000, len_=1):
+        msg = 'INVALID PC: %04Xh != %04Xh' % (self.c.PC, val)
+        self.assertEquals(self.c.PC, val, self.err(msg, start, len_))
+    
+    def check_t(self, val, start=0x0000, len_=1):
+        msg = 'INVALID T: %d != %d' % (self.c.abs_T, val)
+        self.assertEquals(self.c.abs_T, val, self.err(msg, start, len_))
 
 class Z80Test(BaseZ80Test):
     """base Z80 tests"""
@@ -56,12 +89,16 @@ class Z808BitLoadTest(BaseZ80Test):
                 if sreg != dreg:
                     setattr(self.c, dreg, 0x8A)
                 self.c.write(0x0000, op)
-                self.c.run()
-                self.assertEquals(getattr(self.c, dreg), 0x10, \
-                    '0x%02X LD %s, %s: 0x%02X(exp 0x10) != 0x%02X' \
-                    % (op, dreg, sreg, getattr(self.c, dreg), getattr(self.c, sreg)))
-                self.assertEquals(self.c.PC, 0x0001)
-                self.assertEquals(self.c.abs_T, 4)
+                #print self.c.disassemble(0x0000)
+                self.c.run_one()
+                self.eq_8b(getattr(self.c, dreg), 0x10)
+                self.check_pc(self.c.PC, 0x0001)
+                self.check_t(self.c.abs_T, 4)
+                # self.assertEquals(getattr(self.c, dreg), 0x10, \
+                #     '0x%02X LD %s, %s: 0x%02X(exp 0x10) != 0x%02X' \
+                #     % (op, dreg, sreg, getattr(self.c, dreg), getattr(self.c, sreg)))
+                # self.assertEquals(self.c.PC, 0x0001)
+                # self.assertEquals(self.c.abs_T, 4)
     
     def test_ld_r_n(self):
         """Z80: LD r, n"""
@@ -72,11 +109,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.reset()
             self.c.write(0x0000, op)
             self.c.write(0x0001, 0xA5)
-            self.c.run()
-            self.assertEquals(getattr(self.c, dreg), 0xA5,
-                '0x%02X LD %s, 0xA5: 0x%02X != 0xA5' % (op, dreg, getattr(self.c, dreg)))
-            self.assertEquals(self.c.PC, 0x0002)
-            self.assertEquals(self.c.abs_T, 7)
+            self.c.run_one()
+            
+            self.eq_8b(getattr(self.c, dreg), 0xA5)
+            self.check_pc(self.c.PC, 0x0002)
+            self.check_t(self.c.abs_T, 7)
+            # self.assertEquals(getattr(self.c, dreg), 0xA5,
+            #     '0x%02X LD %s, 0xA5: 0x%02X != 0xA5' % (op, dreg, getattr(self.c, dreg)))
+            # self.assertEquals(self.c.PC, 0x0002)
+            # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_r_hl(self):
         """Z80: LD r, (HL)"""
@@ -88,11 +129,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.HL = 0x75A1
             self.c.write(self.c.HL, 0x58)
             self.c.write(0x0000, op)
-            self.c.run()
-            self.assertEquals(getattr(self.c, dreg), 0x58,
-                '0x%02X LD %s, (HL): 0x%02X != 0x58' % (op, dreg, getattr(self.c, dreg)))
-            self.assertEquals(self.c.PC, 0x0001)
-            self.assertEquals(self.c.abs_T, 7)
+            self.c.run_one()
+            
+            self.eq_8b(getattr(self.c, dreg), 0x58)
+            self.check_pc(self.c.PC, 0x0001)
+            self.check_t(self.c.abs_T, 7)
+            # self.assertEquals(getattr(self.c, dreg), 0x58,
+            #     '0x%02X LD %s, (HL): 0x%02X != 0x58' % (op, dreg, getattr(self.c, dreg)))
+            # self.assertEquals(self.c.PC, 0x0001)
+            # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_hl_r(self):
         """Z80: LD (HL), r"""
@@ -104,11 +149,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.HL = 0x2146
             setattr(self.c, sreg, 0x29)
             self.c.write(0x0000, op)
-            self.c.run()
-            self.assertEquals(self.c.read(self.c.HL), 0x29,
-                '0x%02X LD (HL), %s: 0x%02X != 0x29' % (op, sreg, self.c.read(self.c.HL)))
-            self.assertEquals(self.c.PC, 0x0001)
-            self.assertEquals(self.c.abs_T, 7)
+            self.c.run_one()
+
+            self.eq_8b(self.c.read(self.c.HL), 0x29)
+            self.check_pc(self.c.PC, 0x0001)
+            self.check_t(self.c.abs_T, 7)
+            # self.assertEquals(self.c.read(self.c.HL), 0x29,
+            #     '0x%02X LD (HL), %s: 0x%02X != 0x29' % (op, sreg, self.c.read(self.c.HL)))
+            # self.assertEquals(self.c.PC, 0x0001)
+            # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_r_ixd(self):
         """Z80: LD r, (IX + d)"""
@@ -122,11 +171,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xDD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, 0x19)
-            self.c.run()
-            self.assertEquals(getattr(self.c, dreg), 0x39,
-                '0x%02X LD %s, (IX + 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+            
+            self.eq_8b(getattr(self.c, dreg), 0x39)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(getattr(self.c, dreg), 0x39,
+            #     '0x%02X LD %s, (IX + 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
         
         for dst in range(0, 0x08):
             if dst not in REGS_SRC: continue
@@ -138,11 +191,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xDD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, 0xE7)
-            self.c.run()
-            self.assertEquals(getattr(self.c, dreg), 0x39,
-                '0x%02X LD %s, (IX - 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(getattr(self.c, dreg), 0x39)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(getattr(self.c, dreg), 0x39,
+            #     '0x%02X LD %s, (IX - 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
     
     def test_ld_ixd_r(self):
         """Z80: LD (IX + d), r"""
@@ -157,11 +214,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xDD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, off)
-            self.c.run()
-            self.assertEquals(self.c.read(self.IX + off), 0x1C,
-                '0x%02X LD (IX + 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IX + off)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(self.c.read(self.IX + off), 0x1C)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(self.c.read(self.IX + off), 0x1C,
+            #     '0x%02X LD (IX + 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IX + off)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
         
         for r in range(0, 0x08):
             if r not in REGS_SRC: continue
@@ -174,11 +235,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xDD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, 0xFA) # 2'nd complement off
-            self.c.run()
-            self.assertEquals(self.c.read(self.IX - off), 0x1C,
-                '0x%02X LD (IX - 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IX + off)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(self.c.read(self.IX - off), 0x1C)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(self.c.read(self.IX - off), 0x1C,
+            #     '0x%02X LD (IX - 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IX + off)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
     
     def test_ld_r_iyd(self):
         """Z80: LD r, (IY + d)"""
@@ -192,11 +257,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xFD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, 0x19)
-            self.c.run()
-            self.assertEquals(getattr(self.c, dreg), 0x39,
-                '0x%02X LD %s, (IY + 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(getattr(self.c, dreg), 0x39)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(getattr(self.c, dreg), 0x39,
+            #     '0x%02X LD %s, (IY + 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
         
         for dst in range(0, 0x08):
             if dst not in REGS_SRC: continue
@@ -208,11 +277,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xFD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, 0xE7)
-            self.c.run()
-            self.assertEquals(getattr(self.c, dreg), 0x39,
-                '0x%02X LD %s, (IY - 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(getattr(self.c, dreg), 0x39)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(getattr(self.c, dreg), 0x39,
+            #     '0x%02X LD %s, (IY - 0x19): 0x%02X != 0x39' % (op, dreg, getattr(self.c, dreg)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
     
     def test_ld_iyd_r(self):
         """Z80: LD (IY + d), r"""
@@ -227,11 +300,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xFD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, off)
-            self.c.run()
-            self.assertEquals(self.c.read(self.IX + off), 0x1C,
-                '0x%02X LD (IY + 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IY + off)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(self.c.read(self.IX + off), 0x1C)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(self.c.read(self.IX + off), 0x1C,
+            #     '0x%02X LD (IY + 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IY + off)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
         
         for r in range(0, 0x08):
             if r not in REGS_SRC: continue
@@ -244,11 +321,15 @@ class Z808BitLoadTest(BaseZ80Test):
             self.c.write(0x0000, 0xFD)
             self.c.write(0x0001, op)
             self.c.write(0x0002, 0xFA) # 2'nd complement off
-            self.c.run()
-            self.assertEquals(self.c.read(self.IY - off), 0x1C,
-                '0x%02X LD (IY - 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IY + off)))
-            self.assertEquals(self.c.PC, 0x0003)
-            self.assertEquals(self.c.abs_T, 19)
+            self.c.run_one()
+
+            self.eq_8b(self.c.read(self.IY - off), 0x1C)
+            self.check_pc(self.c.PC, 0x0003)
+            self.check_t(self.c.abs_T, 19)
+            # self.assertEquals(self.c.read(self.IY - off), 0x1C,
+            #     '0x%02X LD (IY - 0x06), %s: 0x%02X != 0x1C' % (op, dreg, self.c.read(self.IY + off)))
+            # self.assertEquals(self.c.PC, 0x0003)
+            # self.assertEquals(self.c.abs_T, 19)
     
     def test_ld_hl_n(self):
         """Z80: LD (HL), n"""
@@ -256,10 +337,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.HL = 0x4444
         cpu.write(0x0000, 0x36)
         cpu.write(0x0001, 0x28)
-        cpu.run()
-        self.assertEquals(cpu.read(cpu.HL), 0x28)
-        self.assertEquals(self.c.PC, 0x0002)
-        self.assertEquals(self.c.abs_T, 10)
+        cpu.run_one()
+        
+        self.eq_8b(cpu.read(cpu.HL), 0x28)
+        self.check_pc(self.c.PC, 0x0002)
+        self.check_t(self.c.abs_T, 10)
+        # self.assertEquals(cpu.read(cpu.HL), 0x28)
+        # self.assertEquals(self.c.PC, 0x0002)
+        # self.assertEquals(self.c.abs_T, 10)
     
     def test_ld_ix_n(self):
         """Z80: LD (IX + d), n"""
@@ -270,10 +355,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.write(0x0001, 0x36)
         cpu.write(0x0002, 0x05)
         cpu.write(0x0003, 0x5A)
-        cpu.run()
-        self.assertEquals(cpu.read(0x219F), 0x5A)
-        self.assertEquals(self.c.PC, 0x0004)
-        self.assertEquals(self.c.abs_T, 19)
+        cpu.run_one()
+
+        self.eq_8b(cpu.read(0x219F), 0x5A)
+        self.check_pc(self.c.PC, 0x0004)
+        self.check_t(self.c.abs_T, 19)
+        # self.assertEquals(cpu.read(0x219F), 0x5A)
+        # self.assertEquals(self.c.PC, 0x0004)
+        # self.assertEquals(self.c.abs_T, 19)
     
     def test_ld_iy_n(self):
         """Z80: LD (IY + d), n"""
@@ -284,10 +373,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.write(0x0001, 0x36)
         cpu.write(0x0002, 0x10)
         cpu.write(0x0003, 0x97)
-        cpu.run()
-        self.assertEquals(cpu.read(0xA950), 0x97)
-        self.assertEquals(self.c.PC, 0x0004)
-        self.assertEquals(self.c.abs_T, 19)
+        cpu.run_one()
+
+        self.eq_8b(cpu.read(0xA950), 0x97)
+        self.check_pc(self.c.PC, 0x0004)
+        self.check_t(self.c.abs_T, 19)
+        # self.assertEquals(cpu.read(0xA950), 0x97)
+        # self.assertEquals(self.c.PC, 0x0004)
+        # self.assertEquals(self.c.abs_T, 19)
     
     def test_ld_a_bc(self):
         """Z80: LD A, (BC)"""
@@ -296,10 +389,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.write(cpu.BC, 0x12)
         # LD A, (BC)
         cpu.write(0x0000, 0x0A)
-        cpu.run()
-        self.assertEquals(cpu.A, 0x12)
-        self.assertEquals(self.c.PC, 0x0001)
-        self.assertEquals(self.c.abs_T, 7)
+        cpu.run_one()
+
+        self.eq_8b(cpu.A, 0x12)
+        self.check_pc(self.c.PC, 0x0001)
+        self.check_t(self.c.abs_T, 7)
+        # self.assertEquals(cpu.A, 0x12)
+        # self.assertEquals(self.c.PC, 0x0001)
+        # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_a_de(self):
         """Z80: LD A, (DE)"""
@@ -308,10 +405,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.write(cpu.BC, 0x22)
         # LD A, (DE)
         cpu.write(0x0000, 0x1A)
-        cpu.run()
-        self.assertEquals(cpu.A, 0x22)
-        self.assertEquals(self.c.PC, 0x0001)
-        self.assertEquals(self.c.abs_T, 7)
+        cpu.run_one()
+
+        self.eq_8b(cpu.A, 0x22)
+        self.check_pc(self.c.PC, 0x0001)
+        self.check_t(self.c.abs_T, 7)
+        # self.assertEquals(cpu.A, 0x22)
+        # self.assertEquals(self.c.PC, 0x0001)
+        # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_a_nn(self):
         """Z80: LD A, (nn)"""
@@ -320,10 +421,14 @@ class Z808BitLoadTest(BaseZ80Test):
         # LD A, (0x8832)
         cpu.write(0x0000, 0x3A)
         cpu.write16(0x0001, 0x8832)
-        cpu.run()
-        self.assertEquals(cpu.A, 0x04)
-        self.assertEquals(self.c.PC, 0x0003)
-        self.assertEquals(self.c.abs_T, 13)
+        cpu.run_one()
+
+        self.eq_8b(cpu.A, 0x04)
+        self.check_pc(self.c.PC, 0x0003)
+        self.check_t(self.c.abs_T, 13)
+        # self.assertEquals(cpu.A, 0x04)
+        # self.assertEquals(self.c.PC, 0x0003)
+        # self.assertEquals(self.c.abs_T, 13)
     
     def test_ld_bc_a(self):
         """Z80: LD (BC), A"""
@@ -332,10 +437,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.A = 0x7A
         # LD (BC), A
         cpu.write(0x0000, 0x02)
-        cpu.run()
-        self.assertEquals(cpu.read(cpu.BC), cpu.A)
-        self.assertEquals(self.c.PC, 0x0001)
-        self.assertEquals(self.c.abs_T, 7)
+        cpu.run_one()
+
+        self.eq_8b(cpu.read(cpu.BC), cpu.A)
+        self.check_pc(self.c.PC, 0x0001)
+        self.check_t(self.c.abs_T, 7)
+        # self.assertEquals(cpu.read(cpu.BC), cpu.A)
+        # self.assertEquals(self.c.PC, 0x0001)
+        # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_de_a(self):
         """Z80: LD (DE), A"""
@@ -344,10 +453,14 @@ class Z808BitLoadTest(BaseZ80Test):
         cpu.A = 0xA0
         # LD (DE), A
         cpu.write(0x0000, 0x12)
-        cpu.run()
-        self.assertEquals(cpu.read(cpu.DE), cpu.A)
-        self.assertEquals(self.c.PC, 0x0001)
-        self.assertEquals(self.c.abs_T, 7)
+        cpu.run_one()
+
+        self.eq_8b(cpu.read(cpu.DE), cpu.A)
+        self.check_pc(self.c.PC, 0x0001)
+        self.check_t(self.c.abs_T, 7)
+        # self.assertEquals(cpu.read(cpu.DE), cpu.A)
+        # self.assertEquals(self.c.PC, 0x0001)
+        # self.assertEquals(self.c.abs_T, 7)
     
     def test_ld_nn_a(self):
         """Z80: LD (nn), A"""
@@ -356,10 +469,14 @@ class Z808BitLoadTest(BaseZ80Test):
         # LD (0x3141), A
         cpu.write(0x0000, 0x32)
         cpu.write16(0x0001, 0x3141)
-        cpu.run()
-        self.assertEquals(cpu.read(0x3141), cpu.A)
-        self.assertEquals(self.c.PC, 0x0003)
-        self.assertEquals(self.c.abs_T, 13)
+        cpu.run_one()
+
+        self.eq_8b(cpu.read(0x3141), cpu.A)
+        self.check_pc(self.c.PC, 0x0003)
+        self.check_t(self.c.abs_T, 13)
+        # self.assertEquals(cpu.read(0x3141), cpu.A)
+        # self.assertEquals(self.c.PC, 0x0003)
+        # self.assertEquals(self.c.abs_T, 13)
     
     def test_ld_a_i(self):
         """Z80: LD A, I"""
@@ -367,10 +484,14 @@ class Z808BitLoadTest(BaseZ80Test):
         # LD A, I
         cpu.write(0x0000, 0xED)
         cpu.write16(0x0001, 0x57)
-        cpu.run()
-        self.assertEquals(self.c.PC, 0x0003)
-        self.assertEquals(self.c.abs_T, 9)
+        cpu.run_one()
+
         self.fail('Not implemented')
+        # self.eq_8b(cpu.read(0x3141), cpu.A)
+        self.check_pc(self.c.PC, 0x0003)
+        self.check_t(self.c.abs_T, 9)
+        # self.assertEquals(self.c.PC, 0x0003)
+        # self.assertEquals(self.c.abs_T, 9)
     
     def test_ld_i_a(self):
         """Z80: LD I, A"""
@@ -378,10 +499,14 @@ class Z808BitLoadTest(BaseZ80Test):
         # LD I, A
         cpu.write(0x0000, 0xED)
         cpu.write16(0x0001, 0x47)
-        cpu.run()
-        self.assertEquals(self.c.PC, 0x0003)
-        self.assertEquals(self.c.abs_T, 9)
+        cpu.run_one()
+
         self.fail('Not implemented')
+        # self.eq_8b(cpu.read(0x3141), cpu.A)
+        self.check_pc(self.c.PC, 0x0003)
+        self.check_t(self.c.abs_T, 9)
+        # self.assertEquals(self.c.PC, 0x0003)
+        # self.assertEquals(self.c.abs_T, 9)
     
     def test_ld_a_r(self):
         """Z80: LD A, R"""
@@ -389,10 +514,14 @@ class Z808BitLoadTest(BaseZ80Test):
         # LD A, R
         cpu.write(0x0000, 0xED)
         cpu.write16(0x0001, 0x5F)
-        cpu.run()
-        self.assertEquals(self.c.PC, 0x0003)
-        self.assertEquals(self.c.abs_T, 9)
+        cpu.run_one()
+
         self.fail('Not implemented')
+        # self.eq_8b(cpu.read(0x3141), cpu.A)
+        self.check_pc(self.c.PC, 0x0003)
+        self.check_t(self.c.abs_T, 9)
+        # self.assertEquals(self.c.PC, 0x0003)
+        # self.assertEquals(self.c.abs_T, 9)
     
     def test_ld_r_a(self):
         """Z80: LD R, A"""
@@ -400,10 +529,14 @@ class Z808BitLoadTest(BaseZ80Test):
         # LD R, A
         cpu.write(0x0000, 0xED)
         cpu.write16(0x0001, 0x4F)
-        cpu.run()
-        self.assertEquals(self.c.PC, 0x0003)
-        self.assertEquals(self.c.abs_T, 9)
+        cpu.run_one()
+
         self.fail('Not implemented')
+        # self.eq_8b(cpu.read(0x3141), cpu.A)
+        self.check_pc(self.c.PC, 0x0003)
+        self.check_t(self.c.abs_T, 9)
+        # self.assertEquals(self.c.PC, 0x0003)
+        # self.assertEquals(self.c.abs_T, 9)
 
 
 # =======
