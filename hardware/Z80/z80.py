@@ -89,15 +89,24 @@ class Z80(CPU, Z80_8BitLoad):
         self.abs_T += t
         self.T -= t
 
-    def disassemble(self, address, instruction_count=1, dump_adr=True, dump_hex=True, bytes=1):
+    def disassemble(self, address, bytes=1, dump_adr=True, dump_hex=True):
         ret = []
         while bytes > 0:
             s, ln = dasm(address, self.read)
-            hx = []
-            for o in range(ln):
-                hx.append('%02X' % self.read(address + o))
-            ret.append('%04X %s: %s' % (address, ''.join(hx), s))
+            line = []
+            if dump_adr:
+                line.append('%04X' % address)
+            if dump_hex:
+                hx = []
+                for o in range(ln):
+                    hx.append('%02X' % self.read(address + o))
+                line.append('%s: %s' % (''.join(hx), s))
+            elif dump_adr and not dump_hex:
+                ret.append(': %s' % s)
+            else:
+                ret.append(s)
             bytes -= ln
+            ret.append(' '.join(line))
         return '\n'.join(ret)
     
     def run(self, cycles=0):
@@ -187,7 +196,7 @@ class Z80(CPU, Z80_8BitLoad):
         self.HALT = False
         
         # FIXME real reset values!
-        self.AF = 0xFFFF
+        self.AF = 0x0000
         self.BC = 0x0000
         self.DE = 0x0000
         self.HL = 0x0000
@@ -200,7 +209,7 @@ class Z80(CPU, Z80_8BitLoad):
         
         
         self.PC = 0x0000
-        self.SP = 0xFFFF
+        self.SP = 0xF000
         
         # alt reg set
         self.AF1 = 0x0000

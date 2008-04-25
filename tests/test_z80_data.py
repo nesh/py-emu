@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding:utf-8 
+# -*- coding:utf-8
 
 import os, sys
 import unittest
@@ -37,14 +37,14 @@ class TestData(object):
         self.test = test
         self.test_in = self.make_in('%s.in' % test)
         self.test_out = self.make_out('%s.out' % test)
-
+    
     def __repr__(self):
         return '<%s.in>' % self.test
-
+    
     def make_out(self, fn):
         ret = {}
         ret['regs'] = {}
-
+        
         # read MC
         fh = StringIO.StringIO(self.bytes_out)
         ln = fh.readline()
@@ -54,12 +54,12 @@ class TestData(object):
             ln = fh.readline()
             # TODO: read MC steps
         #
-
+        
         # read regs, etc
         ln = ln.strip()
-
+        
         regs = ln.split(' ')
-
+        
         ret['regs']['af'] = tohex(regs[0])
         ret['regs']['bc'] = tohex(regs[1])
         ret['regs']['de'] = tohex(regs[2])
@@ -72,23 +72,23 @@ class TestData(object):
         ret['regs']['iy'] = tohex(regs[9])
         ret['regs']['sp'] = tohex(regs[10])
         ret['regs']['pc'] = tohex(regs[11])
-
+        
         ln = fh.readline().strip()
         regs = ln.split()
-
+        
         ret['regs']['i'] = tohex(regs[0])
         ret['regs']['r'] = tohex(regs[1])
         ret['regs']['iff1'] = tohex(regs[2]) != 0
         ret['regs']['iff2'] = tohex(regs[3]) != 0
         ret['inHalt'] = tohex(regs[4]) != 0
         ret['icount'] = int(regs[6])
-
+        
         ret['mem'] = {}
         for ln in fh:
             ln = ln.strip()
-
+            
             if ln == '': continue
-
+            
             by = ln.split()
             adr = tohex(by[0])
             m = []
@@ -97,19 +97,19 @@ class TestData(object):
                 m.append(tohex(b))
             #
             ret['mem'][adr] = m
-
+        
         fh.close()
         return ret
-
+    
     def make_in(self, fn):
         ret = {}
         ret['regs'] = {}
         fh = StringIO.StringIO(self.bytes_in)
-
+        
         ln = fh.readline().strip()
         if not ln: return
         regs = ln.split(' ')
-
+        
         ret['regs']['af'] = tohex(regs[0])
         ret['regs']['bc'] = tohex(regs[1])
         ret['regs']['de'] = tohex(regs[2])
@@ -122,25 +122,25 @@ class TestData(object):
         ret['regs']['iy'] = tohex(regs[9])
         ret['regs']['sp'] = tohex(regs[10])
         ret['regs']['pc'] = tohex(regs[11])
-
+        
         ln = fh.readline().strip()
         regs = ln.split()
-
+        
         ret['regs']['i'] = tohex(regs[0])
         ret['regs']['r'] = tohex(regs[1])
         ret['regs']['iff1'] = tohex(regs[2]) != 0
         ret['regs']['iff2'] = tohex(regs[3]) != 0
         ret['inHalt'] = tohex(regs[4]) != 0
-
+        
         ret['im'] = 0
         ret['icount'] = 0
-
+        
         ret['mem'] = {}
         for ln in fh:
             ln = ln.strip()
-
+            
             if ln == '': continue
-
+            
             by = ln.split()
             adr = tohex(by[0])
             m = []
@@ -151,12 +151,28 @@ class TestData(object):
             ret['mem'][adr] = m
         # for
         fh.close()
-
+        
         return ret
+    
+    def dasm(self):
+        mem = RAM(16, 8)
+        cpu = Z80(1, mem)
+        if self.test_in:
+            for a, l in self.test_in['mem'].iteritems():
+                i = 0
+                for c in l:
+                    cpu.write((a + i), c)
+                    i += 1
+                a += len(l)
+        cpu.reset()
+        if self.test_in:
+            cpu.set_state(self.test_in['regs'])
+        return cpu.disassemble(0, dump_adr=False, dump_hex=False)
+
 
 def _cpu_test(code, data):
     """ CPU instruction test """
-
+    
     mem = RAM(16, 8)
     cpu = Z80(1, mem)
     if data.test_in:
@@ -169,16 +185,14 @@ def _cpu_test(code, data):
     cpu.reset()
     
     cpu.set_state(data.test_in['regs'])
-    print cpu.disassemble(0, len(data.test_in['mem']))
-    print '*'*20
     #print cpu
 
-
+    
     try:
         cpu.run(data.test_out['icount']-1)
         # check T
         assert data.test_out['icount'] == cpu.abs_T
-
+        
         # check registers
         for reg, val in data.test_out['regs'].items():
             reg = reg.upper()
@@ -194,11 +208,13 @@ def _cpu_test(code, data):
                     assert cpu.read(a) == b
                     a += 1
     except (CPUException, AssertionError), err:
+        print cpu.disassemble(0)
+        print '*'*20
         print 'Test: %X' % code
         print cpu
         raise
 
-def test_cpu():
+def xtest_cpu():
     """ test cpu instruction set (dir)"""
     for root, dirs, files in os.walk(_testdir):
         for name in files:
@@ -213,24 +229,24 @@ def test_cpu():
             inf = open(os.path.join(root, name))
             outf = open(os.path.join(root, '%s.out' % n))
             data = TestData(inf.read(), outf.read(), n, code)
-            #test_cpu.__doc__ = 'Test: %X' % code
+            _cpu_test.description = '%06X: %s' % (code, data.dasm().rstrip())
             yield _cpu_test, code, data
 
-# def test_cpu_zip():
-#     """ test cpu instruction set (zip)"""
-#     zf = zipfile.ZipFile(_testzip, 'r')
-# 
-#     for name in zf.namelist():
-#         if not name.endswith('.in'):
-#             continue
-#         n, e = os.path.splitext(name)
-#         nn = n[:]
-#         if '_' in nn:
-#             nn = nn[:-2] # strip _x
-#         code = int('0x%s' % nn, 16)
-#         data = TestData(zf.read(name), zf.read('%s.out' % n), n, code)
-#         #test_cpu_zip.__doc__ = 'Test: %X' % code
-#         yield _cpu_test, code, data
+def test_cpu_zip():
+    """ test cpu instruction set (zip)"""
+    zf = zipfile.ZipFile(_testzip, 'r')
+    
+    for name in zf.namelist():
+        if not name.endswith('.in'):
+            continue
+        n, e = os.path.splitext(name)
+        nn = n[:]
+        if '_' in nn:
+            nn = nn[:-2] # strip _x
+        code = int('0x%s' % nn, 16)
+        data = TestData(zf.read(name), zf.read('%s.out' % n), n, code)
+        _cpu_test.description = '%06X: %s' % (code, data.dasm().rstrip())
+        yield _cpu_test, code, data
 
 if __name__ == '__main__':
     import nose
