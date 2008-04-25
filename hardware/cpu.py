@@ -49,7 +49,7 @@ class CPU(Device):
     def _mnemonic(self, op):
         raise NotImplementedError('%s._mnemonic() is not implemented' % self.__class__)
 
-    def _add_op(self, table, cycles, handler, adr_mode, override=False):
+    def _add_op(self, opcode, table, cycles, handler, adr_mode, override=False):
         """
             0 cycles
             1 handler
@@ -65,7 +65,7 @@ class CPU(Device):
         )
 
     def add_op(self, opcode, handler, adr_mode, override=False):
-        self._add_op(self, self._op, self._cycles, opcode, handler, adr_mode, override)
+        self._add_op(opcode, self._op, self._cycles, handler, adr_mode, override)
 
 
     def register_opcodes(self):
