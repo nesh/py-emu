@@ -18,7 +18,7 @@ class MemoryTest(unittest.TestCase):
         self.values = [random.randint(0, 0xFF) for x in range(0x10000)]
         assert len(self.values) == 0x10000
         for i in range(0x10000):
-            self.m.write(i, self.values[i])
+            self.m[i] = self.values[i]
 
     def tearDown(self):
         pass
@@ -32,36 +32,28 @@ class MemoryTest(unittest.TestCase):
         values = [random.randint(0, 0x10000) for x in range(10)]
         for x in range(0x1000):
             for val in values:
-                self.m.write(x, val)
-                self.assertEquals(
-                    self.m.read(x),
-                    val & 0xFF,
-                    '$%04X: $%02X != $%02X' % (x, self.m.read(x), val & 0xFF)
-                )
-
-    def test_rw_arr(self):
-        """ memory: read/write as array """
-        values = [random.randint(0, 0x10000) for x in range(10)]
-        for x in range(0x1000):
-            for val in values:
                 self.m[x] = val
                 self.assertEquals(
                     self.m[x],
                     val & 0xFF,
                     '$%04X: $%02X != $%02X' % (x, self.m[x], val & 0xFF)
                 )
-    
+
+    def test_slice_addr(self):
+        """ memory: test slice addresses """
+        ret = [0, 1, 2]
+        self.m[0:3] = ret
+        self.assertEquals(self.m[0:3], ret)
+
+        ret = [2, 1, 0]
+        self.m[0x10000:0x10003] = ret
+        self.assertEquals(self.m[0x10000:0x10003], ret)
+
     def test_big_addr(self):
         """ memory: test big addresses """
-        self.m.write(0x10100, 0xAA)
-        self.assertEquals(self.m.read(0x10100), 0xAA)
-        self.assertEquals(self.m.read(0x0100), 0xAA)
-
-    def test_big_addr_a(self):
-        """ memory: test big addresses array access """
-        self.m[0x10100] = 0x11A
-        self.assertEquals(self.m[0x10100], 0x1A)
-        self.assertEquals(self.m[0x0100], 0x1A)
+        self.m[0x10100] = 0xAA
+        self.assertEquals(self.m[0x10100], 0xAA)
+        self.assertEquals(self.m[0x0100], 0xAA)
 
     def test_iter(self):
         """ memory: test __iter__ """
@@ -72,4 +64,5 @@ class MemoryTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    import nose
+    nose.main()

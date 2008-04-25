@@ -1,3 +1,7 @@
+try:
+    from psyco.classes import __metaclass__
+except ImportError:
+    pass
 from pydispatch.dispatcher import send, connect
 from device import Device
 

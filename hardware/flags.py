@@ -1,8 +1,7 @@
 try:
     from psyco.classes import __metaclass__
 except ImportError:
-    import sys
-    print >>sys.stderr, 'No psyco'
+    pass
 
 class Flags(object):
     def __init__(self, val=0):
