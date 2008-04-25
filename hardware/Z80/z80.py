@@ -15,6 +15,7 @@ from hardware.cpu import (
     cpu_nmi,
 )
 
+from tools import *
 from tables import *
 from dasm import *
 from flags import *

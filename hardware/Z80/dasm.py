@@ -1,14 +1,7 @@
 from dasmtab import *
+from tools import as_signed
 
-__all__ = ('dasm', 'as_signed')
-
-def as_signed(val):
-    """ convert value to the signed one """
-    if val & 0x80:
-        return -(256 - val)
-    else:
-        return val
-
+__all__ = ('dasm',)
 
 def dasm(adr, read):
     """ This function will disassemble a single command and

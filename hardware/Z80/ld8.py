@@ -1,5 +1,5 @@
 from tables import *
-from dasm import as_signed
+from tools import as_signed
 
 class Z80_8BitLoad(object):
     # ============

@@ -16,12 +16,6 @@ from hardware.Z80.z80 import Z80, Z80Flags
 from hardware.memory import RAM
 from hardware.cpu import CPUException
 
-def eqx(a, b, msg=None):
-    """Shorthand for 'assert a == b, "%X != %X" % (a, b)
-    """
-    assert a == b, msg or "$%X != $%X" % (a, b)
-
-
 _testdir = os.path.join(os.path.dirname(__file__), '..', 'private', 'z80_test_data')
 _testzip = os.path.join(os.path.dirname(__file__), 'z80_test_data.zip')
 
@@ -182,12 +176,8 @@ def _cpu_test(code, data):
                 cpu.write((a + i), c)
                 i += 1
             a += len(l)
-    cpu.reset()
-    
+    cpu.reset()    
     cpu.set_state(data.test_in['regs'])
-    #print cpu
-
-    
     try:
         cpu.run(data.test_out['icount']-1)
         # check T
@@ -209,28 +199,28 @@ def _cpu_test(code, data):
                     a += 1
     except (CPUException, AssertionError), err:
         print cpu.disassemble(0)
-        print '*'*20
+        print '='*50
         print 'Test: %X' % code
         print cpu
         raise
 
-def xtest_cpu():
-    """ test cpu instruction set (dir)"""
-    for root, dirs, files in os.walk(_testdir):
-        for name in files:
-            #if not name.endswith('.in') and not name.endswith('.out'):
-            if not name.endswith('.in'):
-                continue
-            n, e = os.path.splitext(name)
-            nn = n[:]
-            if '_' in nn:
-                nn = nn[:-2] # strip _x
-            code = int('0x%s' % nn, 16)
-            inf = open(os.path.join(root, name))
-            outf = open(os.path.join(root, '%s.out' % n))
-            data = TestData(inf.read(), outf.read(), n, code)
-            _cpu_test.description = '%06X: %s' % (code, data.dasm().rstrip())
-            yield _cpu_test, code, data
+# def xtest_cpu():
+#     """ test cpu instruction set (dir)"""
+#     for root, dirs, files in os.walk(_testdir):
+#         for name in files:
+#             #if not name.endswith('.in') and not name.endswith('.out'):
+#             if not name.endswith('.in'):
+#                 continue
+#             n, e = os.path.splitext(name)
+#             nn = n[:]
+#             if '_' in nn:
+#                 nn = nn[:-2] # strip _x
+#             code = int('0x%s' % nn, 16)
+#             inf = open(os.path.join(root, name))
+#             outf = open(os.path.join(root, '%s.out' % n))
+#             data = TestData(inf.read(), outf.read(), n, code)
+#             _cpu_test.description = '%06X: %s' % (code, data.dasm().rstrip())
+#             yield _cpu_test, code, data
 
 def test_cpu_zip():
     """ test cpu instruction set (zip)"""
