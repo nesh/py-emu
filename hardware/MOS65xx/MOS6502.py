@@ -27,7 +27,40 @@ BCD_TAB = (
            for t in range(0x100)])
 )
 
-SVZ_TAB = SZ_TAB = None
+def as_signed(val):
+    """ convert value to the signed one """
+    if val & 0x80:
+        return -(256 - val)
+    else:
+        return val
+
+SVZ_TAB = None
+SZ_TAB = None
+
+def init_tabs():
+    global SVZ_TAB, SZ_TAB
+
+    SVZ_TAB = [None] * 0x100
+    SZ_TAB = [None] * 0x100
+
+    for n in range(0x100):
+        s = as_signed(n)
+
+        SVZ_TAB[n] = {
+            's': bool(n & 0x80),
+            'v': (s > 127) or (s < -128),
+            'z': not n
+        }
+
+        SZ_TAB[n] = {
+            's': bool(n & 0x80),
+            'z': not n
+        }
+
+    SVZ_TAB = tuple(SVZ_TAB)
+    SZ_TAB = tuple(SZ_TAB)
+init_tabs()
+del init_tabs # cleanup
 
 CYCLES = (
 #   0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
@@ -416,9 +449,6 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
 
         super(MOS6502, self).__init__(break_afer, mem, io)
 
-        if SVZ_TAB is None or SZ_TAB is None:
-            self.init_tabs()
-
         # init adrmode tab
 
         self.adr_modes[MOS6502.IMPLIED] = (self.implied, '')
@@ -467,29 +497,6 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
 
     def _mnemonic(self, op):
         return MNEMONICS[op]
-
-    def init_tabs(self):
-        global SVZ_TAB, SZ_TAB
-
-        SVZ_TAB = [None] * 0x100
-        SZ_TAB = [None] * 0x100
-
-        for n in range(0x100):
-            s = self.mem.as_signed(n)
-
-            SVZ_TAB[n] = {
-                's': bool(n & 0x80),
-                'v': (s > 127) or (s < -128),
-                'z': not n
-            }
-
-            SZ_TAB[n] = {
-                's': bool(n & 0x80),
-                'z': not n
-            }
-
-        SVZ_TAB = tuple(SVZ_TAB)
-        SZ_TAB = tuple(SZ_TAB)
 
     def __str__(self):
         return 'PC: %04X A: %02X X: %02X Y: %02X S: %02X P: %s' % \
