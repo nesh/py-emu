@@ -18,6 +18,7 @@ from hardware.cpu import (
     cpu_nmi,
 )
 from hardware.flags import Flags
+from tools import *
 
 __all__ = ('MOS6502Flags', 'MOS6502',)
 
@@ -27,12 +28,6 @@ BCD_TAB = (
            for t in range(0x100)])
 )
 
-def as_signed(val):
-    """ convert value to the signed one """
-    if val & 0x80:
-        return -(256 - val)
-    else:
-        return val
 
 SVZ_TAB = None
 SZ_TAB = None
@@ -369,7 +364,7 @@ class LowMOS6502BxxMixin(object):
 
     def _bxx(self, op, cond):
         if not cond: return
-        adr = self.PC + self.mem.as_signed(op)
+        adr = self.PC + as_signed(op)
         # See if we need to add one cycle for indexing across a page boundary
         if (self.PC ^ adr) & 0xFF00:
             self.T -= 2
@@ -449,6 +444,10 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
 
         super(MOS6502, self).__init__(break_afer, mem, io)
 
+        # shortcuts
+        self.read = self.mem.read
+        self.write = self.mem.write
+
         # init adrmode tab
 
         self.adr_modes[MOS6502.IMPLIED] = (self.implied, '')
@@ -502,9 +501,36 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
         return 'PC: %04X A: %02X X: %02X Y: %02X S: %02X P: %s' % \
                 (self.PC, self.A, self.X, self.Y, self.S, self.P)
 
+    def read16(self, adr):
+        r = self.read # shortcut
+        return r(adr) + (r(adr + 1) * 256)
+    
+    def read16_tuple(self, adr):
+        """return touple lo, hi"""
+        r = self.read # shortcut
+        return r(adr), (r(adr + 1) * 256)
+    
+    def write16(self, adr, val):
+        w = self.write # shortcut
+        w(adr, val & 0xFF)
+        w(adr + 1, (val >> 8) & 0xFF)
+    
+    def write16_tuple(self, adr, lo, hi):
+        """write lo/hi"""
+        w = self.write # shortcut
+        w(adr, lo)
+        w(adr + 1, hi)
+
     def read_op(self):
-        ret = self.mem.read(self.PC)
+        """read opcode"""
+        ret = self.read(self.PC)
         self.PC = (self.PC + 1) & 0xFFFF
+        return ret
+    
+    def read_op16(self):
+        """read opcode 16b"""
+        ret = self.read16(self.PC)
+        self.PC = (self.PC + 2) & 0xFFFF
         return ret
 
     def push(self, val):
@@ -975,7 +1001,7 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
         olda = self.A
         if not self.P.d:
             op = ~op
-            diff = self.mem.as_signed(self.A) + self.mem.as_signed(op) + (1 if self.P.c else 0) & 0xFFFF
+            diff = as_signed(self.A) + as_signed(op) + (1 if self.P.c else 0) & 0xFFFF
             self.P.v = (diff > 127) or (diff < -128)
             self.A = diff & 0xFF
             self.P.c = diff > 0xFF
@@ -1012,7 +1038,7 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
         low = self.read_op()
         self.mem.read(0x100 + self.S)
         self.push_word(self.PC)
-        self.PC = low | (self.mem.read_op() << 8)
+        self.PC = low | (self.read_op() << 8)
 
     def las(self, adr, op):
         """
@@ -1290,7 +1316,7 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
         self.mem.write(adr, op)
 
         if not self.P.d:
-            sum = self.mem.as_signed(self.A) + self.mem.as_signed(op) + (1 if self.P.c else 0)
+            sum = as_signed(self.A) + as_signed(op) + (1 if self.P.c else 0)
             self.P.v = (sum > 127) or (sum < -128)
             self.A = sum & 0xFF
             self.P.c = sum > 0xFF
@@ -1366,7 +1392,7 @@ class MOS6502(CPU, LowMOS6502MemMixin, LowMOS6502BxxMixin):
         olda = self.A
         if not self.P.d:
             op = ~op
-            diff = self.mem.as_signed(self.A) + self.mem.as_signed(op) + (1 if self.P.c else 0)
+            diff = as_signed(self.A) + as_signed(op) + (1 if self.P.c else 0)
             self.P.v = (diff > 127) or (diff < -128)
             self.A = diff & 0xFF
             self.P.c = diff > 0xFF

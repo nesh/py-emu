@@ -16,13 +16,12 @@ class RAM(Device):
         self.adr_width = adr_width
         self.adr_mask = self.size - 1
         self.sign = 1 << (self.data_width - 1)
-        self.mem = [0] * self.size
+        self.mem = [0xDEADBEEF] * self.size
         super(RAM, self).__init__()
     
     def reset(self):
         pass
     
-    # faster than array-like access
     def read(self, adr):
         return self.mem[adr & self.adr_mask]
     
@@ -41,26 +40,23 @@ class RAM(Device):
         return len(self.mem)
     
     def __getitem__(self, k):
-        if isinstance(k, slice):
-            start = k.start & self.adr_mask
-            stop =  k.stop & self.adr_mask
-            return self.mem[start:stop]
-        else:
-            return self.mem[k & self.adr_mask]
+        # if isinstance(k, slice):
+        #     start = k.start & self.adr_mask
+        #     stop =  k.stop & self.adr_mask
+        #     return self.mem[start:stop]
+        # else:
+        return self.mem[k & self.adr_mask]
     
     def __setitem__(self, k, value):
-        if isinstance(k, slice):
-            start = k.start & self.adr_mask
-            stop =  k.stop & self.adr_mask
-            if isinstance(value, (list, tuple)):
-                self.mem[start:stop] = [v & self.data_mask for v in value]
-            else:
-                self.mem[start:stop] = value & self.data_mask
-        else:
-            self.mem[k & self.adr_mask] = value & self.data_mask
-    
-    def __iter__(self):
-        return iter(self.mem)
+        # if isinstance(k, slice):
+        #     start = k.start & self.adr_mask
+        #     stop =  k.stop & self.adr_mask
+        #     if isinstance(value, (list, tuple)):
+        #         self.mem[start:stop] = [v & self.data_mask for v in value]
+        #     else:
+        #         self.mem[start:stop] = value & self.data_mask
+        # else:
+        self.mem[k & self.adr_mask] = value & self.data_mask
     
     def __contains__(self, v):
-        return v in self.mem
+        return (v & self.data_mask) in self.mem

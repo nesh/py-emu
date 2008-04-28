@@ -102,7 +102,7 @@ class MainWindow(window.Window):
 
     def setup_emu(self, cpu_mhz=1.19):
         t_per_frame = int((cpu_mhz * 1e6) / self.hz)
-        self.mem = A2600Mem(os.path.join(ROOT, 'data', '3d_tic.bin'))
+        self.mem = A2600Mem(os.path.join(ROOT, 'private', 'data', '3d_tic.bin'))
         self.cpu = MOS6502(t_per_frame, self.mem)
         self.cpu.reset()
 
@@ -126,13 +126,14 @@ def main(options):
 
 
 if __name__ == "__main__":
-    if not options.profile:
-        # no psyco if profiling
-        try:
-            import psyco
-            psyco.log()
-            psyco.profile(0.05)
-            psyco.runonly()
-        except ImportError:
-            pass
+    # if not options.profile:
+    #     # no psyco if profiling
+    #     try:
+    #         import psyco
+    #         psyco.full()
+    #         # psyco.log()
+    #         # psyco.profile(0.05)
+    #         # psyco.runonly()
+    #     except ImportError:
+    #         pass
     sys.exit(main(options))

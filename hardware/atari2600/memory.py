@@ -60,7 +60,7 @@ class Cartridge(RAM):
         raise NotImplementedError('%s.bank_count() is not implemented' % self.__class__)
 
     def patch(self, adr, val):
-        raise NotImplementedError('%s.patch() is not implemented' % self.__class__)
+        super(Cartridge2K, self).write(adr, val)
 
 
 class Cartridge2K(Cartridge):
@@ -73,7 +73,7 @@ class Cartridge2K(Cartridge):
         for b in image:
             super(Cartridge2K, self).write(a, ord(b))
             a += 1
-        self._mem = tuple(self._mem) # mem is RO
+        self.mem = tuple(self.mem) # mem is RO
 
     def __str__(self):
         return '2K cartrige'
@@ -87,10 +87,8 @@ class Cartridge2K(Cartridge):
     def get_bank(self):
         return 0
 
-    def patch(self, adr, val):
-        self.write(adr, val)
-
     def write(self, adr, value):
+        """ read only """
         return
 
 class A2600Mem(RAM):
@@ -104,16 +102,15 @@ class A2600Mem(RAM):
         image = fh.read()
         fh.close()
         self.cart = detect_type(image)
-        print 'loaded %s (%s)' % (fname, self.cart)
         super(A2600Mem, self).__init__(13, 8)
-
+        self.log.debug('loaded %s (%s)' % (fname, self.cart))
 
     def read(self, adr):
         if adr & 0x1000:
             return self.cart.read(adr)
-        return self._mem[adr & self._adr_mask]
+        return super(A2600Mem, self).read(adr)
 
     def write(self, adr, value):
         if adr & 0x1000:
             return self.cart.write(adr, value)
-        self._mem[adr & self._adr_mask] = value & self._data_mask
+        super(A2600Mem, self).write(adr, value)
