@@ -12,7 +12,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from hardware.Z80.z80 import Z80, Z80Flags
+from hardware.Z80.z80 import Z80
+from hardware.Z80.z80core import F5_FLAG, F3_FLAG
 from hardware.memory import RAM
 from hardware.cpu import CPUException
 
@@ -150,7 +151,8 @@ class TestData(object):
     
     def dasm(self):
         mem = RAM(16, 8)
-        cpu = Z80(1, mem)
+        io = RAM(16, 8)
+        cpu = Z80(1, mem, io)
         if self.test_in:
             for a, l in self.test_in['mem'].iteritems():
                 i = 0
@@ -164,11 +166,14 @@ class TestData(object):
         return cpu.disassemble(0, dump_adr=False, dump_hex=False)
 
 
+
+mem = RAM(16, 8)
+io = RAM(16, 8)
+cpu = Z80(1, mem, io)
+
 def _cpu_test(code, data):
     """ CPU instruction test """
     
-    mem = RAM(16, 8)
-    cpu = Z80(1, mem)
     if data.test_in:
         for a, l in data.test_in['mem'].iteritems():
             i = 0
@@ -176,51 +181,60 @@ def _cpu_test(code, data):
                 cpu.write((a + i), c)
                 i += 1
             a += len(l)
+
     cpu.reset()    
     cpu.set_state(data.test_in['regs'])
+    start_pc = cpu.PC
     try:
-        cpu.run(data.test_out['icount']-1)
+        # print 'running from %04X' % cpu.PC
+        cpu.run(data.test_out['icount'] - 1)
+        assert cpu._cpu.Trap == 0, 'invalid op @%04X' % cpu._cpu.Trap
         # check T
-        assert data.test_out['icount'] == cpu.abs_T
+        assert data.test_out['icount'] == cpu.icount, '%d != %d' % (data.test_out['icount'], cpu.icount)
         
         # check registers
         for reg, val in data.test_out['regs'].items():
             reg = reg.upper()
-            if reg != 'F':
-                r = getattr(cpu, reg)
+            r = getattr(cpu, reg)
+            if reg == 'R': continue # ignore R for now
+            if reg == 'AF':
+                # reset 5 & 3 for now
+                r &= ~(F5_FLAG | F3_FLAG)
+                val &= ~(F5_FLAG | F3_FLAG)
+                assert r == val, '%s(%04X) != %04X (F: %s)' % \
+                    (reg, r, val, cpu.flags_as_str(val & 0xFF))
             else:
-                r = cpu.F.byte
-            if reg != 'R': # ignore R for now
                 assert r == val, '%s(%04X) != %04X' % (reg, r, val)
-            # test mem
-            for a, l in data.test_out['mem'].iteritems():
-                for b in l:
-                    assert cpu.read(a) == b
-                    a += 1
-    except (CPUException, AssertionError), err:
-        print cpu.disassemble(0)
+        # test mem
+        for a, l in data.test_out['mem'].iteritems():
+            for b in l:
+                assert cpu.read(a) == b
+                a += 1
+    except Exception, err:
+        # print len(data.test_in['mem']), data.test_in['mem']
+        print cpu.disassemble(0, bytes=len(data.test_in['mem'][start_pc]))
         print '='*50
         print 'Test: %X' % code
         print cpu
         raise
 
-# def xtest_cpu():
-#     """ test cpu instruction set (dir)"""
-#     for root, dirs, files in os.walk(_testdir):
-#         for name in files:
-#             #if not name.endswith('.in') and not name.endswith('.out'):
-#             if not name.endswith('.in'):
-#                 continue
-#             n, e = os.path.splitext(name)
-#             nn = n[:]
-#             if '_' in nn:
-#                 nn = nn[:-2] # strip _x
-#             code = int('0x%s' % nn, 16)
-#             inf = open(os.path.join(root, name))
-#             outf = open(os.path.join(root, '%s.out' % n))
-#             data = TestData(inf.read(), outf.read(), n, code)
-#             _cpu_test.description = '%06X: %s' % (code, data.dasm().rstrip())
-#             yield _cpu_test, code, data
+def xtest_cpu():
+    """ test cpu instruction set (dir)"""
+    for root, dirs, files in os.walk(_testdir):
+        for name in files:
+            #if not name.endswith('.in') and not name.endswith('.out'):
+            if not name.endswith('.in'):
+                continue
+            n, e = os.path.splitext(name)
+            nn = n[:]
+            if '_' in nn:
+                nn = nn[:-2] # strip _x
+            code = int('0x%s' % nn, 16)
+            inf = open(os.path.join(root, name))
+            outf = open(os.path.join(root, '%s.out' % n))
+            data = TestData(inf.read(), outf.read(), n, code)
+            _cpu_test.description = 'test %s' % name
+            yield _cpu_test, code, data
 
 def test_cpu_zip():
     """ test cpu instruction set (zip)"""
@@ -235,8 +249,8 @@ def test_cpu_zip():
             nn = nn[:-2] # strip _x
         code = int('0x%s' % nn, 16)
         data = TestData(zf.read(name), zf.read('%s.out' % n), n, code)
-        _cpu_test.description = '%06X: %s' % (code, data.dasm().rstrip())
         yield _cpu_test, code, data
+        _cpu_test.description = 'test %s' % name
 
 if __name__ == '__main__':
     import nose

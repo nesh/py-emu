@@ -2,10 +2,9 @@
 Z80 CPU core
 """
 
-# stdlib
-import random
+import sys
+from ctypes import cast, c_void_p, pointer
 
-# app
 from hardware.cpu import (
     CPU, CPUTrapInvalidOP,
     _add_cycles,
@@ -14,171 +13,79 @@ from hardware.cpu import (
     cpu_irq,
     cpu_nmi,
 )
-
-from tools import *
-from tables import *
+from z80core import *
+from z80core import _Z80
 from dasm import *
-from flags import *
-from ld8 import *
 
-__all__ = ('Z80Flags', 'Z80',)
+__all__ = ('Z80',)
 
-class Z80(CPU, Z80_8BitLoad):
-    IM0, IM1, IM0_1 = range(0, 3)
-    
+class Z80(CPU):
     def __init__(self, break_afer, mem, io=None):
-        self.F = Z80Flags()
-        self.last_prefix = None
-        
+        self._cpu = Z80State()
         super(Z80, self).__init__(break_afer, mem, io)
-        # shortcuts
+        
         self.read = self.mem.read
         self.write = self.mem.write
         
-        # additional tables
-        self._cb_op = {}
-        self._xx_op = {}
-        self._xxcb_op = {}
-        self._ed_op = {}
+        self.io_read = self.io.read
+        self.io_write = self.io.write
+
+        self._cpu.read = cast(READ(self.read), c_void_p)
+        self._cpu.read_op = cast(READ(self.read), c_void_p)
+        self._cpu.write = cast(WRITE(self.write), c_void_p)
         
-        # reg setup
-        self.reset()
+        self._cpu.io_read = cast(READ(self.io_read), c_void_p)
+        self._cpu.io_write = cast(WRITE(self.io_write), c_void_p)
+
+    def flags_as_str(self, val=None):
+        if val is None:
+            val = self.F
+        ret = ['-'] * 8
+        ret[7] = 'S' if val & S_FLAG else '-'
+        ret[6] = 'Z' if val & Z_FLAG else '-'
+        ret[5] = '5' if val & F5_FLAG else '-'
+        ret[4] = 'H' if val & H_FLAG else '-'
+        ret[3] = '3' if val & F3_FLAG else '-'
+        ret[2] = 'V' if val & V_FLAG else '-'
+        ret[1] = 'N' if val & N_FLAG else '-'
+        ret[0] = 'C' if val & C_FLAG else '-'
+        ret.reverse()
+        return ''.join(ret)
         
-        # init opcodes
-        self._op[0xCB] = self.cb
-        self._xx_op[0xCB] = self.xxcb
-        self._op[0xED] = self.ed
-        self._op[0xDD] = self.dd
-        self._op[0xFD] = self.fd
-        # other
-        self.register_opcodes()
+    def reset(self):
+        self._cpu.Trap = 0
+        _Z80.ResetZ80(self._cpu)
     
-    def xxcb(self, reg):
-        offset = as_signed(self.read_op())
-        op = self.read_op()
-        t = CYCLES_XXCB[op]
-        self._xxcb_op[op](reg, offset)
-        self.abs_T += t
-        self.T -= t
-        
-
-    def dd(self):
-        op = self.read_op()
-        t = CYCLES_XX[op]
-        self._xx_op[op]('IX')
-        self.abs_T += t
-        self.T -= t
-
-    def fd(self):
-        op = self.read_op()
-        t = CYCLES_XX[op]
-        self._xx_op[op]('IY')
-        self.abs_T += t
-        self.T -= t
-
-    def ed(self):
-        op = self.read_op()
-        t = CYCLES_ED[op]
-        self._ed_op[op]()
-        self.abs_T += t
-        self.T -= t
-
-    def cb(self):
-        op = self.read_op()
-        t = CYCLES_CB[op]
-        self._cb_op[op]()
-        self.abs_T += t
-        self.T -= t
+    def run(self, cycles=0):
+        left = _Z80.ExecZ80(self._cpu, cycles)
 
     def disassemble(self, address, bytes=1, dump_adr=True, dump_hex=True):
         ret = []
+        idx = 0
         while bytes > 0:
-            s, ln = dasm(address, self.read)
+            s, ln = dasm(address + idx, self.read)
             line = []
             if dump_adr:
-                line.append('%04X' % address)
+                line.append('%04X' % (address + idx))
             if dump_hex:
                 hx = []
                 for o in range(ln):
-                    hx.append('%02X' % self.read(address + o))
+                    hx.append('%02X' % self.read(address + idx + o))
                 line.append('%s: %s' % (''.join(hx), s))
             elif dump_adr and not dump_hex:
                 ret.append(': %s' % s)
             else:
                 ret.append(s)
             bytes -= ln
+            idx += ln
             ret.append(' '.join(line))
         return '\n'.join(ret)
     
-    def run(self, cycles=0):
-        # run until we spend all cycles
-        # TODO IRQs
-        self.T += cycles
-        
-        while self.T >= 0:
-            old_pc = self.PC
-            op = self.read_op()
-            t = CYCLES[op]
-            
-            try:
-                self._op[op]()
-            except KeyError:
-                raise CPUTrapInvalidOP('Invalid opcode %02X: %s' % (op, self.disassemble(old_pc)))
-            self.abs_T += t
-            self.T -= t
-    
-    # =================
-    # = mem I/O stuff =
-    # =================
-    def read16(self, adr):
-        r = self.read # shortcut
-        return r(adr) + (r(adr + 1) * 256)
-    
-    def read16_tuple(self, adr):
-        """return touple lo, hi"""
-        r = self.read # shortcut
-        return r(adr), (r(adr + 1) * 256)
-    
-    def write16(self, adr, val):
-        w = self.write # shortcut
-        w(adr, val & 0xFF)
-        w(adr + 1, (val >> 8) & 0xFF)
-    
-    def write16_tuple(self, adr, lo, hi):
-        """write lo/hi"""
-        w = self.write # shortcut
-        w(adr, lo)
-        w(adr + 1, hi)
-    
-    def push(self, val):
-        w = self.write # shortcut
-        sp = self.SP # shortcut
-        sp = (sp - 1) & 0xFFFF
-        w(sp, (val >> 8) & 0xFF) # hi
-        sp = self.SP = (sp - 1) & 0xFFFF
-        w(sp, val & 0xFF) # lo
-    
-    def pop(self):
-        r = self.read # shortcut
-        sp = self.SP # shortcut
-        ret = r(sp) # lo
-        sp = (sp + 1) & 0xFFFF
-        ret += r(sp) * 256 # hi
-        self.SP = (sp + 1) & 0xFFFF
-        return ret
-    
-    def read_op(self):
-        """read opcode"""
-        ret = self.read(self.PC)
-        self.PC = (self.PC + 1) & 0xFFFF
-        return ret
-    
-    def read_op16(self):
-        """read opcode 16b"""
-        ret = self.read16(self.PC)
-        self.PC = (self.PC + 2) & 0xFFFF
-        return ret
-    
+    def set_state(self, state):
+        for k, v in state.items():
+            k = k.upper()
+            setattr(self, k, v)
+
     def __str__(self):
         ret = []
         ret.append('PC: %04X AF: %04X BC: %04X DE: %04X HL: %04X IX: %04X IY: %04X SP: %04X' %\
@@ -187,138 +94,202 @@ class Z80(CPU, Z80_8BitLoad):
         ret.append('I: %02X R: %02X IFF1: %s IFF2: %s IM: %s T: %d' % (
                     self.I, self.R, self.IFF1, self.IFF2, self.IM, self.abs_T
                   ))
-        ret.append('F: %s' % self.F)
+        ret.append('F: %s' % self.flags_as_str())
         return '\n'.join(ret)
 
-    def reset(self):
-        self.last_prefix = None
-        
-        self.IM = Z80.IM0
-        self.HALT = False
-        
-        # FIXME real reset values!
-        self.AF = 0x0000
-        self.BC = 0x0000
-        self.DE = 0x0000
-        self.HL = 0x0000
-        self.IX = 0x0000
-        self.IY = 0x0000
-        
-        self.R = 0x00
-        self.IFF1 = self.IFF2 = False
-        self.I = 0x00
-        
-        
-        self.PC = 0x0000
-        self.SP = 0xF000
-        
-        # alt reg set
-        self.AF1 = 0x0000
-        self.BC1 = 0x0000
-        self.DE1 = 0x0000
-        self.HL1 = 0x0000
-        
-        # tstates
-        self.T = 0
-        self.abs_T = 0
-    
-    # 16b regs
-    # TODO see which 16b regs are more used and use them like Ix regs
-    #      instead of using them as two 8b regs -- HL?
-    
-    # AF
+    # ===================
+    # = data access =
+    # ===================
+
+    # ==========
+    # = icount =
+    # ==========
+    def _gIC(self):
+        return self._cpu.ITotal
+    icount = property(fget=_gIC)
+
+    # ======
+    # = PC =
+    # ======
+    def _gPC(self):
+        return self._cpu.PC.W
+    def _sPC(self, val):
+        self._cpu.PC.W = val
+    PC = property(fget=_gPC, fset=_sPC)
+
+    # ======
+    # = SP =
+    # ======
+    def _gSP(self):
+        return self._cpu.SP.W
+    def _sSP(self, val):
+        self._cpu.SP.W = val
+    SP = property(fget=_gSP, fset=_sSP)
+
+    # ======
+    # = AF =
+    # ======
     def _gAF(self):
-        return self.F.byte + (self.A * 256)
+        return self._cpu.AF.W
     def _sAF(self, val):
-        self.F.byte = val & 0xFF
-        self.A = (val >> 8) & 0xFF
+        self._cpu.AF.W = val
     AF = property(fget=_gAF, fset=_sAF)
+    def _gA(self):
+        return self._cpu.AF.B.h
+    def _sA(self, val):
+        self._cpu.AF.B.h = val
+    A = property(fget=_gA, fset=_sA)
+    def _gF(self):
+        return self._cpu.AF.B.l
+    def _sF(self, val):
+        self._cpu.AF.B.h = val
+    F = property(fget=_gF, fset=_sF)
     
-    # BC
+    # ======
+    # = BC =
+    # ======
     def _gBC(self):
-        return self.C + (self.B * 256)
+        return self._cpu.BC.W
     def _sBC(self, val):
-        self.C = val & 0xFF
-        self.B = (val >> 8) & 0xFF
+        self._cpu.BC.W = val
     BC = property(fget=_gBC, fset=_sBC)
-    
-    # DE
+    def _gB(self):
+        return self._cpu.BC.B.h
+    def _sB(self, val):
+        self._cpu.BC.B.h = val
+    B = property(fget=_gB, fset=_sB)
+    def _gC(self):
+        return self._cpu.BC.B.l
+    def _sC(self, val):
+        self._cpu.BC.B.h = val
+    C = property(fget=_gC, fset=_sC)
+
+    # ======
+    # = DE =
+    # ======
     def _gDE(self):
-        return self.E + (self.D * 256)
+        return self._cpu.DE.W
     def _sDE(self, val):
-        self.E = val & 0xFF
-        self.D = (val >> 8) & 0xFF
+        self._cpu.DE.W = val
     DE = property(fget=_gDE, fset=_sDE)
-    
-    # HL
+    def _gD(self):
+        return self._cpu.DE.B.h
+    def _sD(self, val):
+        self._cpu.DE.B.h = val
+    D = property(fget=_gD, fset=_sD)
+    def _gE(self):
+        return self._cpu.DE.B.l
+    def _sE(self, val):
+        self._cpu.DE.B.h = val
+    E = property(fget=_gE, fset=_sE)
+
+    # ======
+    # = HL =
+    # ======
     def _gHL(self):
-        return self.L + (self.H * 256)
+        return self._cpu.HL.W
     def _sHL(self, val):
-        self.L = val & 0xFF
-        self.H = (val >> 8) & 0xFF
+        self._cpu.HL.W = val
     HL = property(fget=_gHL, fset=_sHL)
-    
-    # (HL)
-    def _gHLind(self):
-        return self.read(self.HL)
-    def _sHLind(self, val):
-        self.write(self.HL, val)
-    HL_ind = property(fget=_gHLind, fset=_sHLind)
-    
-    # index lo/hi
-    def _gIXL(self):
-        return self.IX & 0xFF
-    def _sIXL(self, val):
-        self.IX = (self.IX & 0xFF00) + (val & 0xFF)
-    IXL = property(fget=_gIXL, fset=_sIXL)
-    
-    def _gIXH(self):
-        return (self.IX >> 8) & 0xFF
-    def _sIXH(self, val):
-        self.IX = ((val & 0xFF) * 256) + (self.IX & 0xFF)
-    IXH = property(fget=_gIXH, fset=_sIXH)
-    
-    def _gIYL(self):
-        return self.IY & 0xFF
-    def _sIYL(self, val):
-        self.IY = (self.IY & 0xFF00) + (val & 0xFF)
-    IYL = property(fget=_gIYL, fset=_sIYL)
-    
-    def _gIYH(self):
-        return (self.IY >> 8) & 0xFF
-    def _sIYH(self, val):
-        self.IY = ((val & 0xFF) * 256) + (self.IY & 0xFF)
-    IYH = property(fget=_gIYH, fset=_sIYH)
-    
-    # ====================
-    # = Standard opcodes =
-    # ====================
-    
-    def nop(self):
-        pass
-    
-    def register_opcodes(self):
-        self._create_8b_load()
-        # ============
-        # = standard =
-        # ============
-        self._op[NOP] = self.nop
+    def _gH(self):
+        return self._cpu.HL.B.h
+    def _sH(self, val):
+        self._cpu.HL.B.h = val
+    H = property(fget=_gH, fset=_sH)
+    def _gL(self):
+        return self._cpu.HL.B.l
+    def _sL(self, val):
+        self._cpu.HL.B.h = val
+    L = property(fget=_gL, fset=_sL)
 
-    def get_state(self):
-        """get cpu state
+    # ======
+    # = AF1 =
+    # ======
+    def _gAF1(self):
+        return self._cpu.AF1.W
+    def _sAF1(self, val):
+        self._cpu.AF1.W = val
+    AF1 = property(fget=_gAF1, fset=_sAF1)
+    
+    # ======
+    # = BC1 =
+    # ======
+    def _gBC1(self):
+        return self._cpu.BC1.W
+    def _sBC1(self, val):
+        self._cpu.BC1.W = val
+    BC1 = property(fget=_gBC1, fset=_sBC1)
 
-           return dict with current cpu state
-        """
-        raise NotImplementedError('%s.get_state() is not implemented' % self.__class__)
+    # ======
+    # = DE1 =
+    # ======
+    def _gDE1(self):
+        return self._cpu.DE1.W
+    def _sDE1(self, val):
+        self._cpu.DE1.W = val
+    DE1 = property(fget=_gDE1, fset=_sDE1)
 
-    def set_state(self, state):
-        """set cpu state
+    # ======
+    # = HL1 =
+    # ======
+    def _gHL1(self):
+        return self._cpu.HL1.W
+    def _sHL1(self, val):
+        self._cpu.HL1.W = val
+    HL1 = property(fget=_gHL1, fset=_sHL1)
 
-           set current cpu state with state dict
-        """
-        for k, v in state.items():
-            k = k.upper()
-            if k != 'F':
-                setattr(self, k, v)
-            else:
-                self.F.byte = v
+    # ======
+    # = IX =
+    # ======
+    def _gIX(self):
+        return self._cpu.IX.W
+    def _sIX(self, val):
+        self._cpu.IX.W = val
+    IX = property(fget=_gIX, fset=_sIX)
+
+    # ======
+    # = IY =
+    # ======
+    def _gIY(self):
+        return self._cpu.IY.W
+    def _sIY(self, val):
+        self._cpu.IY.W = val
+    IY = property(fget=_gIY, fset=_sIY)
+
+    # ======
+    # = I =
+    # ======
+    def _gI(self):
+        return self._cpu.I
+    def _sI(self, val):
+        self._cpu.I = val
+    I = property(fget=_gI, fset=_sI)
+
+    # ======
+    # = R =
+    # ======
+    def _gR(self):
+        return self._cpu.R
+    def _sR(self, val):
+        self._cpu.R = val
+    R = property(fget=_gR, fset=_sR)
+
+    # ======
+    # = IFF =
+    # ======
+    def _gIFF(self):
+        return self._cpu.IFF
+    def _sIFF(self, val):
+        self._cpu.IFF = val
+    IFF1 = property(fget=_gIFF, fset=_sIFF)
+    IFF2 = property(fget=_gIFF, fset=_sIFF)
+
+    # ======
+    # = IM =
+    # ======
+    # TODO CHECK!!!!
+    def _gIM(self):
+        return self._cpu.I
+    def _sIM(self, val):
+        self._cpu.I = val
+    IM = property(fget=_gR, fset=_sR)
