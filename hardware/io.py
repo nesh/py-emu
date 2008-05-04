@@ -1,28 +1,21 @@
-try:
-    from psyco.classes import __metaclass__
-except ImportError:
-    pass
-from pydispatch.dispatcher import send, connect
-from device import Device
+from memory import RAM
 
-# IO events
-class IORead:
-    pass
-
-class IOWrite:
-    pass
-
-class IO(Device):
+class IO(RAM):
     def __init__(self, adr_width, bit_width):
-        self._data_width = bit_width
-        self._data_mask = (2 ** bit_width) - 1
-        self._adr_width = adr_width
-        self._adr_mask = self._size - 1
+        self.size = (2 ** adr_width)
+        self.data_size = (2 ** bit_width)
+        self.data_width = bit_width
+        self.data_mask = self.data_size - 1
+        self.adr_width = adr_width
+        self.adr_mask = self.size - 1
+        self.sign = 1 << (self.data_width - 1)
         super(IO, self).__init__()
 
-    def read(self, adr):
-        # it will return value from the *last* event handler
-        return send(IORead, self, adr & self._adr_mask)[-1][1] & self._data_mask
-
+    def reset(self):
+        raise NotImplementedError('%s.reset() is not implemented' % self.__class__)
+    
     def write(self, adr, value):
-        send(IOWrite, self, adr & self._adr_mask, value & self._data_mask)
+        raise NotImplementedError('%s.write() is not implemented' % self.__class__)
+    
+    def read(self, adr):
+        raise NotImplementedError('%s.read() is not implemented' % self.__class__)

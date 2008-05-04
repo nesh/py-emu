@@ -44,6 +44,8 @@ extern "C" {
 #define V_FLAG      0x04       /* 1: Overflow occured        */
 #define N_FLAG      0x02       /* 1: Subtraction occured     */
 #define C_FLAG      0x01       /* 1: Carry/Borrow occured    */
+#define Y_FLAG      0x20       // 5
+#define X_FLAG      0x08       // 3
 
                                /* Bits in IFF flip-flops:    */
 #define IFF_1       0x01       /* IFF1 flip-flop             */
@@ -82,20 +84,19 @@ typedef union
 
 typedef struct Z80_state
 {
-  pair AF,BC,DE,HL,IX,IY,PC,SP;       /* Main registers      */
-  pair AF1,BC1,DE1,HL1;               /* Shadow registers    */
-  byte IFF,I;                         /* Interrupt registers */
-  byte R;                             /* Refresh register    */
+    pair AF,BC,DE,HL,IX,IY,PC,SP;       /* Main registers      */
+    pair AF1,BC1,DE1,HL1;               /* Shadow registers    */
+    byte IFF,I;                         /* Interrupt registers */
+    byte R;                             /* Refresh register    */
 
-  int IPeriod,ICount; /* Set IPeriod to number of CPU cycles */
-                      /* between calls to LoopZ80()          */
-  int ITotal;
-  int IBackup;        /* Private, don't touch                */
-  word IRequest;      /* Set to address of pending IRQ       */
-  byte IAutoReset;    /* Set to 1 to autom. reset IRequest   */
-  byte TrapBadOps;    /* Set to 1 to warn of illegal opcodes */
-  word Trap;          /* Set Trap to address to trace from   */
-  byte Trace;         /* Set Trace=1 to start tracing        */
+    int IPeriod, ICount; /* Set IPeriod to number of CPU cycles */
+                         /* between calls to LoopZ80()          */
+    int ITotal;
+    int IBackup;        /* Private, don't touch                */
+    word IRequest;      /* Set to address of pending IRQ       */
+    byte IAutoReset;    /* Set to 1 to autom. reset IRequest   */
+    byte TrapBadOps;    /* Set to 1 to warn of illegal opcodes */
+    word Trap;          /* Set Trap to address to trace from   */
   
     /** RdZ80()/WrZ80() ******************************************/
     /** These functions are called when access to RAM occurs.   **/
@@ -122,23 +123,12 @@ typedef struct Z80_state
     /************************************ TO BE WRITTEN BY USER **/
     void (*patch)(void *R);
 
-    /** LoopZ80() ************************************************/
-    /** Z80 emulation calls this function periodically to check **/
-    /** if the system hardware requires any interrupts. This    **/
-    /** function must return an address of the interrupt vector **/
-    /** (0x0038, 0x0066, etc.) or INT_NONE for no interrupt.    **/
-    /** Return INT_QUIT to exit the emulation loop.             **/
-    /************************************ TO BE WRITTEN BY USER **/
-    word (*loop)(void *R);
-
     /** JumpZ80() ************************************************/
     /** Z80 emulation calls this function when it executes a    **/
     /** JP, JR, CALL, RST, or RET. You can use JumpZ80() to     **/
     /** trap these opcodes and switch memory layout.            **/
     /************************************ TO BE WRITTEN BY USER **/
     void (*jump)(word PC);
-
-  void *User;         /* Arbitrary user data (ID,RAM*,etc.)  */
 } Z80;
 
 /** ResetZ80() ***********************************************/
@@ -153,44 +143,15 @@ void ResetZ80(register Z80 *R);
 /** It will then return the number of cycles left, possibly **/
 /** negative, and current register values in R.             **/
 /*************************************************************/
-#ifdef EXECZ80
+// ExecZ80 return values
+# define EXECZ80_OK 0
+# define EXECZ80_UNKNOWN_OP -1
 int ExecZ80(register Z80 *R,register int RunCycles);
-#endif
 
 /** IntZ80() *************************************************/
 /** This function will generate interrupt of given vector.  **/
 /*************************************************************/
 void IntZ80(register Z80 *R,register word Vector);
-
-/** RunZ80() *************************************************/
-/** This function will run Z80 code until an LoopZ80() call **/
-/** returns INT_QUIT. It will return the PC at which        **/
-/** emulation stopped, and current register values in R.    **/
-/*************************************************************/
-#ifndef EXECZ80
-word RunZ80(register Z80 *R);
-#endif
-
-/** DebugZ80() ***********************************************/
-/** This function should exist if DEBUG is #defined. When   **/
-/** Trace!=0, it is called after each command executed by   **/
-/** the CPU, and given the Z80 registers. Emulation exits   **/
-/** if DebugZ80() returns 0.                                **/
-/*************************************************************/
-#ifdef DEBUG
-byte DebugZ80(register Z80 *R);
-#endif
-
-/** JumpZ80() ************************************************/
-/** Z80 emulation calls this function when it executes a    **/
-/** JP, JR, CALL, RST, or RET. You can use JumpZ80() to     **/
-/** trap these opcodes and switch memory layout.            **/
-/************************************ TO BE WRITTEN BY USER **/
-#ifndef JUMPZ80
-#define JumpZ80(PC)
-#else
-void JumpZ80(word PC);
-#endif
 
 #ifdef __cplusplus
 }

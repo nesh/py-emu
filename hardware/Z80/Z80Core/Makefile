@@ -8,7 +8,7 @@ all:  $(OUT)
 
 # TODO autodetect endianess
 Z80.o: $(SRC) $(DEP)
-	gcc -c -shared -fPIC -O3 -DEXECZ80 -DLSB_FIRST Z80.c
+	gcc -c -shared -fPIC -O3 -fomit-frame-pointer -Wall -DEXECZ80 -DLSB_FIRST Z80.c
 	
 $(OUT): Z80.o
 	libtool -dynamic -o $(OUT) z80.o

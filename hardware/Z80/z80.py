@@ -13,11 +13,21 @@ from hardware.cpu import (
     cpu_irq,
     cpu_nmi,
 )
+from hardware.memory import RAM
 from z80core import *
 from z80core import _Z80
 from dasm import *
 
-__all__ = ('Z80',)
+__all__ = ('Z80', 'Z80Mem')
+
+class Z80Mem(RAM):
+    """ we are using a C core so data is already in the required range """
+    # faster than array-like access
+    def read(self, adr):
+        return self.mem[adr]
+    
+    def write(self, adr, value):
+        self.mem[adr] = value
 
 class Z80(CPU):
     def __init__(self, break_afer, mem, io=None):
@@ -43,9 +53,9 @@ class Z80(CPU):
         ret = ['-'] * 8
         ret[7] = 'S' if val & S_FLAG else '-'
         ret[6] = 'Z' if val & Z_FLAG else '-'
-        ret[5] = '5' if val & F5_FLAG else '-'
+        ret[5] = 'Y' if val & Y_FLAG else '-'
         ret[4] = 'H' if val & H_FLAG else '-'
-        ret[3] = '3' if val & F3_FLAG else '-'
+        ret[3] = 'X' if val & X_FLAG else '-'
         ret[2] = 'V' if val & V_FLAG else '-'
         ret[1] = 'N' if val & N_FLAG else '-'
         ret[0] = 'C' if val & C_FLAG else '-'
@@ -56,8 +66,8 @@ class Z80(CPU):
         self._cpu.Trap = 0
         _Z80.ResetZ80(self._cpu)
     
-    def run(self, cycles=0):
-        left = _Z80.ExecZ80(self._cpu, cycles)
+    def run(self, cycles=1):
+        return _Z80.ExecZ80(self._cpu, cycles)
 
     def disassemble(self, address, bytes=1, dump_adr=True, dump_hex=True):
         ret = []
@@ -92,7 +102,7 @@ class Z80(CPU):
                     (self.PC, self.AF, self.BC, self.DE, self.HL, self.IX, self.IY, self.SP)
                   )
         ret.append('I: %02X R: %02X IFF1: %s IFF2: %s IM: %s T: %d' % (
-                    self.I, self.R, self.IFF1, self.IFF2, self.IM, self.abs_T
+                    self.I, self.R, self.IFF1, self.IFF2, self.IM, self.itotal
                   ))
         ret.append('F: %s' % self.flags_as_str())
         return '\n'.join(ret)
@@ -100,14 +110,20 @@ class Z80(CPU):
     # ===================
     # = data access =
     # ===================
-
+    def _gtrap(self):
+        return self._cpu.Trap
+    trap = property(fget=_gtrap)
     # ==========
     # = icount =
     # ==========
-    def _gIC(self):
+    def _gITot(self):
         return self._cpu.ITotal
+    itotal = property(fget=_gITot)
+    
+    def _gIC(self):
+        return self._cpu.ICount
     icount = property(fget=_gIC)
-
+    
     # ======
     # = PC =
     # ======
@@ -134,15 +150,17 @@ class Z80(CPU):
     def _sAF(self, val):
         self._cpu.AF.W = val
     AF = property(fget=_gAF, fset=_sAF)
+
     def _gA(self):
         return self._cpu.AF.B.h
     def _sA(self, val):
         self._cpu.AF.B.h = val
     A = property(fget=_gA, fset=_sA)
+
     def _gF(self):
         return self._cpu.AF.B.l
     def _sF(self, val):
-        self._cpu.AF.B.h = val
+        self._cpu.AF.B.l = val
     F = property(fget=_gF, fset=_sF)
     
     # ======
@@ -153,15 +171,17 @@ class Z80(CPU):
     def _sBC(self, val):
         self._cpu.BC.W = val
     BC = property(fget=_gBC, fset=_sBC)
+
     def _gB(self):
         return self._cpu.BC.B.h
     def _sB(self, val):
         self._cpu.BC.B.h = val
     B = property(fget=_gB, fset=_sB)
+
     def _gC(self):
         return self._cpu.BC.B.l
     def _sC(self, val):
-        self._cpu.BC.B.h = val
+        self._cpu.BC.B.l = val
     C = property(fget=_gC, fset=_sC)
 
     # ======
@@ -172,15 +192,17 @@ class Z80(CPU):
     def _sDE(self, val):
         self._cpu.DE.W = val
     DE = property(fget=_gDE, fset=_sDE)
+
     def _gD(self):
         return self._cpu.DE.B.h
     def _sD(self, val):
         self._cpu.DE.B.h = val
     D = property(fget=_gD, fset=_sD)
+
     def _gE(self):
         return self._cpu.DE.B.l
     def _sE(self, val):
-        self._cpu.DE.B.h = val
+        self._cpu.DE.B.l = val
     E = property(fget=_gE, fset=_sE)
 
     # ======
@@ -191,15 +213,17 @@ class Z80(CPU):
     def _sHL(self, val):
         self._cpu.HL.W = val
     HL = property(fget=_gHL, fset=_sHL)
+
     def _gH(self):
         return self._cpu.HL.B.h
     def _sH(self, val):
         self._cpu.HL.B.h = val
     H = property(fget=_gH, fset=_sH)
+
     def _gL(self):
         return self._cpu.HL.B.l
     def _sL(self, val):
-        self._cpu.HL.B.h = val
+        self._cpu.HL.B.l = val
     L = property(fget=_gL, fset=_sL)
 
     # ======
@@ -277,19 +301,41 @@ class Z80(CPU):
     # ======
     # = IFF =
     # ======
-    def _gIFF(self):
-        return self._cpu.IFF
-    def _sIFF(self, val):
-        self._cpu.IFF = val
-    IFF1 = property(fget=_gIFF, fset=_sIFF)
-    IFF2 = property(fget=_gIFF, fset=_sIFF)
+    def _gIFF1(self):
+        return not not (self._cpu.IFF & IFF_1)
+    def _sIFF1(self, val):
+        if val:
+            self._cpu.IFF |= IFF_1
+        else:
+            self._cpu.IFF &= ~IFF_1
+    IFF1 = property(fget=_gIFF1, fset=_sIFF1)
+    def _gIFF2(self):
+        return not not (self._cpu.IFF & IFF_2)
+    def _sIFF2(self, val):
+        if val:
+            self._cpu.IFF |= IFF_2
+        else:
+            self._cpu.IFF &= ~IFF_2
+    IFF2 = property(fget=_gIFF2, fset=_sIFF2)
 
     # ======
     # = IM =
     # ======
-    # TODO CHECK!!!!
     def _gIM(self):
-        return self._cpu.I
+        i = self._cpu.IFF
+        if i & IFF_IM1:
+            return 1
+        elif i & IFF_IM2:
+            return 2
+        else:
+            return 0
     def _sIM(self, val):
-        self._cpu.I = val
-    IM = property(fget=_gR, fset=_sR)
+        if val == 0:
+            self._cpu.IFF &= ~(IFF_IM1 | IFF_IM2)
+        elif val == 1:
+            self._cpu.IFF = (self._cpu.IFF & ~IFF_IM2) | IFF_IM1;
+        elif val == 2:
+            self._cpu.IFF = (self._cpu.IFF & ~IFF_IM1) | IFF_IM2;
+        else:
+            raise ValueError('invalid IM %d' % val)
+    IM = property(fget=_gIM, fset=_sIM)

@@ -1,7 +1,9 @@
 import sys
 from ctypes import *
 
-_Z80 = CDLL("Z80_core.so")
+from hardware.cpu import CPUTrapInvalidOP
+
+_Z80 = CDLL("z80_core.so")
 
 byte = c_uint8
 word = c_uint16
@@ -31,12 +33,20 @@ class pair(Union):
 
 S_FLAG  = 0x80 # 7
 Z_FLAG  = 0x40 # 6
-F5_FLAG = 0x20 # 5
+F5_FLAG = Y_FLAG = 0x20 # 5
 H_FLAG  = 0x10 # 4
-F3_FLAG  = 0x08 # 3
+F3_FLAG = X_FLAG = 0x08 # 3
 V_FLAG = P_FLAG  = 0x04 # 2
 N_FLAG  = 0x02 # 1
 C_FLAG  = 0x01 # 0
+
+# Bits in IFF flip-flops
+IFF_1 = 0x01        # IFF1 flip-flop
+IFF_IM1 = 0x02      # 1: IM1 mode
+IFF_IM2 = 0x04      # 1: IM2 mode
+IFF_2 = 0x08        # IFF2 flip-flop
+IFF_EI = 0x20       # 1: EI pending
+IFF_HALT = 0x80     # 1: CPU HALTed
 
 class Z80State(Structure):
     _fields_ = (
@@ -63,7 +73,6 @@ class Z80State(Structure):
         ('IAutoReset', byte),
         ('TrapBadOps', byte),
         ('Trap', word),
-        ('Trace', byte),
         
         ('write', c_void_p),
         ('read', c_void_p),
@@ -73,10 +82,7 @@ class Z80State(Structure):
         ('io_read', c_void_p),
         
         ('patch', c_void_p),
-        ('loop', c_void_p),
         ('jump', c_void_p),
-        
-        ('User', c_void_p),
     )
 Z80StateP = POINTER(Z80State)
 PBYTE = POINTER(byte)
@@ -104,8 +110,15 @@ _Z80.ResetZ80.restype = None
 # #ifdef EXECZ80
 # int ExecZ80(register Z80 *R,register int RunCycles);
 # #endif
+def _exec_z80_handle(val):
+    if val == 0: # OK
+        return val
+    elif val == -1:
+        raise CPUTrapInvalidOP()
+    else:
+        raise CPUException(val)
 _Z80.ExecZ80.argtypes = (Z80StateP, c_int)
-_Z80.ExecZ80.restype = c_int
+_Z80.ExecZ80.restype = _exec_z80_handle
 
 # /** IntZ80() *************************************************/
 # /** This function will generate interrupt of given vector.  **/
