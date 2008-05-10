@@ -16,80 +16,25 @@ from hardware.cpu import (
 )
 
 from tools import *
-from tables import *
 from dasm import *
-from flags import *
-from ld8 import *
+from opcodes import *
 
-__all__ = ('Z80Flags', 'Z80',)
+__all__ = ('Z80',)
 
-class Z80(CPU, Z80_8BitLoad):
+class Z80(CPU, Z80MixinBASE):
     IM0, IM1, IM0_1 = range(0, 3)
     
     def __init__(self, break_afer, mem, io=None):
-        self.F = Z80Flags()
-        self.last_prefix = None
-        
         super(Z80, self).__init__(break_afer, mem, io)
-        # shortcuts
-        self.read = self.mem.read
-        self.write = self.mem.write
-        
-        # additional tables
-        self._cb_op = {}
-        self._xx_op = {}
-        self._xxcb_op = {}
-        self._ed_op = {}
-        
-        # reg setup
         self.reset()
         
-        # init opcodes
-        self._op[0xCB] = self.cb
-        self._xx_op[0xCB] = self.xxcb
-        self._op[0xED] = self.ed
-        self._op[0xDD] = self.dd
-        self._op[0xFD] = self.fd
-        # other
-        self.register_opcodes()
-    
-    def xxcb(self, reg):
-        offset = as_signed(self.read_op())
-        op = self.read_op()
-        t = CYCLES_XXCB[op]
-        self._xxcb_op[op](reg, offset)
-        self.abs_T += t
-        self.T -= t
+        # # shortcuts
+        # self.read = self.mem.read
+        # self.write = self.mem.write
         
-
-    def dd(self):
-        op = self.read_op()
-        t = CYCLES_XX[op]
-        self._xx_op[op]('IX')
-        self.abs_T += t
-        self.T -= t
-
-    def fd(self):
-        op = self.read_op()
-        t = CYCLES_XX[op]
-        self._xx_op[op]('IY')
-        self.abs_T += t
-        self.T -= t
-
-    def ed(self):
-        op = self.read_op()
-        t = CYCLES_ED[op]
-        self._ed_op[op]()
-        self.abs_T += t
-        self.T -= t
-
-    def cb(self):
-        op = self.read_op()
-        t = CYCLES_CB[op]
-        self._cb_op[op]()
-        self.abs_T += t
-        self.T -= t
-
+        # initialize opcodes
+        self._init_base()
+        
     def disassemble(self, address, bytes=1, dump_adr=True, dump_hex=True):
         ret = []
         while bytes > 0:
@@ -111,128 +56,110 @@ class Z80(CPU, Z80_8BitLoad):
         return '\n'.join(ret)
     
     def run(self, cycles=0):
-        # run until we spend all cycles
-        # TODO IRQs
-        self.T += cycles
-        
-        while self.T >= 0:
-            old_pc = self.PC
-            op = self.read_op()
-            t = CYCLES[op]
-            
-            try:
-                self._op[op]()
-            except KeyError:
-                raise CPUTrapInvalidOP('Invalid opcode %02X: %s' % (op, self.disassemble(old_pc)))
-            self.abs_T += t
-            self.T -= t
+        pass
+        # # run until we spend all cycles
+        # # TODO IRQs
+        # self.T += cycles
+        # 
+        # while self.T >= 0:
+        #     old_pc = self.pc
+        #     op = self.read_op()
+        #     t = CYCLES[op]
+        #     
+        #     try:
+        #         self._op[op]()
+        #     except KeyError:
+        #         raise CPUTrapInvalidOP('Invalid opcode %02X: %s' % (op, self.disassemble(old_pc)))
+        #     self.abs_T += t
+        #     self.T -= t
     
     # =================
     # = mem I/O stuff =
     # =================
-    def read16(self, adr):
+    def read16(self, adr, w1=None, w2=None):
         r = self.read # shortcut
-        return r(adr) + (r(adr + 1) * 256)
+        return r(adr, w1) + (r(adr + 1, w2) * 256)
     
-    def read16_tuple(self, adr):
-        """return touple lo, hi"""
-        r = self.read # shortcut
-        return r(adr), (r(adr + 1) * 256)
-    
-    def write16(self, adr, val):
+    def write16(self, adr, val, w1=None, w2=None):
         w = self.write # shortcut
-        w(adr, val & 0xFF)
-        w(adr + 1, (val >> 8) & 0xFF)
+        w(adr, val, w1) # no need for & 0xFF, memory will do this
+        w(adr + 1, val >> 8, w2)
     
-    def write16_tuple(self, adr, lo, hi):
-        """write lo/hi"""
-        w = self.write # shortcut
-        w(adr, lo)
-        w(adr + 1, hi)
+    def read_op_arg16(self):
+        r = self.read_op # shortcut
+        return r() + (r() * 256)
     
-    def push(self, val):
-        w = self.write # shortcut
-        sp = self.SP # shortcut
-        sp = (sp - 1) & 0xFFFF
-        w(sp, (val >> 8) & 0xFF) # hi
-        sp = self.SP = (sp - 1) & 0xFFFF
-        w(sp, val & 0xFF) # lo
-    
-    def pop(self):
-        r = self.read # shortcut
-        sp = self.SP # shortcut
-        ret = r(sp) # lo
-        sp = (sp + 1) & 0xFFFF
-        ret += r(sp) * 256 # hi
-        self.SP = (sp + 1) & 0xFFFF
-        return ret
-    
-    def read_op(self):
-        """read opcode"""
-        ret = self.read(self.PC)
-        self.PC = (self.PC + 1) & 0xFFFF
-        return ret
-    
-    def read_op16(self):
-        """read opcode 16b"""
-        ret = self.read16(self.PC)
-        self.PC = (self.PC + 2) & 0xFFFF
-        return ret
+    def flags_as_str(self, val = None):
+        from flags import Z80Flags
+        if val is None: val = self.f
+        return str(Z80Flags(val))
     
     def __str__(self):
         ret = []
         ret.append('PC: %04X AF: %04X BC: %04X DE: %04X HL: %04X IX: %04X IY: %04X SP: %04X' %\
-                    (self.PC, self.AF, self.BC, self.DE, self.HL, self.IX, self.IY, self.SP)
+                    (self.pc, self.af, self.bc, self.de, self.hl, self.ix, self.iy, self.sp)
                   )
         ret.append('I: %02X R: %02X IFF1: %s IFF2: %s IM: %s T: %d' % (
-                    self.I, self.R, self.IFF1, self.IFF2, self.IM, self.abs_T
+                    self.i, self.r, self.iff1, self.iff2, self.im, self.itotal
                   ))
-        ret.append('F: %s' % self.F)
+        ret.append('F: %s' % self.flags_as_str())
         return '\n'.join(ret)
 
     def reset(self):
-        self.last_prefix = None
+        super(Z80, self).reset()
         
-        self.IM = Z80.IM0
-        self.HALT = False
+        self.af = 0xFFFF
+        self.bc = 0xFFFF
+        self.de = 0xFFFF
+        self.hl = 0xFFFF
+        self.ix = 0xFFFF
+        self.iy = 0xFFFF
         
-        # FIXME real reset values!
-        self.AF = 0x0000
-        self.BC = 0x0000
-        self.DE = 0x0000
-        self.HL = 0x0000
-        self.IX = 0x0000
-        self.IY = 0x0000
+        self.r = 0x00
+        self.iff1 = False
+        self.iff2 = False
+        self.i = 0x00
+        self.im = Z80.IM0
         
-        self.R = 0x00
-        self.IFF1 = self.IFF2 = False
-        self.I = 0x00
-        
-        
-        self.PC = 0x0000
-        self.SP = 0xF000
+        self.pc = 0x0000
+        self.sp = 0xFFFF
         
         # alt reg set
-        self.AF1 = 0x0000
-        self.BC1 = 0x0000
-        self.DE1 = 0x0000
-        self.HL1 = 0x0000
+        self.af1 = 0xFFFF
+        self.bc1 = 0xFFFF
+        self.de1 = 0xFFFF
+        self.hl1 = 0xFFFF
         
-        # tstates
-        self.T = 0
-        self.abs_T = 0
+        # internal flags
+        self.noint_once = False
+        self.halt = False
+        self.int_vector_req = 0
+        
+
+    # =======
+    # = I/O =
+    # =======
+    def read_port(self, port, wait=0):
+        if wait: self._wait_until(wait)
+        return self.io.read(port)
     
+    def write_port(self, port, value, wait=0):
+        """ write port """
+        if wait: self._wait_until(wait)
+        self.io.write(port, value)
+
     # 16b regs
     # TODO see which 16b regs are more used and use them like Ix regs
     #      instead of using them as two 8b regs -- HL?
     
     # AF
     def _gAF(self):
-        return self.F.byte + (self.A * 256)
+        return self.f + (self.a * 256)
     def _sAF(self, val):
-        self.F.byte = val & 0xFF
-        self.A = (val >> 8) & 0xFF
+        self.f = val & 0xFF
+        self.f = (val >> 8) & 0xFF
     AF = property(fget=_gAF, fset=_sAF)
+    af = property(fget=_gAF, fset=_sAF)
     
     # BC
     def _gBC(self):
