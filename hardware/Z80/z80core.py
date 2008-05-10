@@ -1,9 +1,12 @@
 import sys
+import os
 from ctypes import *
 
 from hardware.cpu import CPUTrapInvalidOP
 
-_Z80 = CDLL("z80_core.so")
+LIB_DIR = os.path.abspath(os.path.dirname(__file__))
+
+_Z80 = CDLL(os.path.join(LIB_DIR, "z80_core.so"))
 
 byte = c_uint8
 word = c_uint16
