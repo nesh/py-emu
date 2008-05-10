@@ -13,8 +13,9 @@
 #include "z80ex_common.h"
 
 typedef
-enum {regAF,regBC,regDE,regHL,regAF_,regBC_,regDE_,regHL_,regIX,regIY,regPC,regSP,regI,regR,regR7,regIM/*0,1 …Ã… 2*/,regIFF1,regIFF2}
-Z80_REG_T;
+enum {regAF,regBC,regDE,regHL,regAF_,regBC_,regDE_,regHL_,regIX,regIY,regPC,regSP,regI,regR,regR7,regIM/*0,1 √â√å√â 2*/,regIFF1,regIFF2}
+Z80_REG_T_;
+#define Z80_REG_T unsigned char
 
 #ifndef __Z80EX_SELF_INCLUDE
 
@@ -63,6 +64,9 @@ extern void z80ex_destroy(Z80EX_CONTEXT *cpu);
 
 /*do next opcode (instruction or prefix), return number of T-states eaten*/
 extern int z80ex_step(Z80EX_CONTEXT *cpu);
+
+// run cpu until tstates expire, return remainder (can be negative)
+extern int z80ex_run(Z80EX_CONTEXT *cpu, int tstates);
 
 /*return type of last opcode, processed with z80ex_step.
 type will be 0 for complete instruction, or prefix value for dd/fd/cb/ed prefixes*/

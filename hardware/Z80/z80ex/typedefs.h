@@ -27,7 +27,8 @@ typedef union {
 } regpair;
 
 typedef
-enum {IM0=0,IM1=1,IM2=2} IM_MODE;
+enum {IM0=0,IM1=1,IM2=2} IM_MODE_;
+#define IM_MODE unsigned char
 
 struct _z80_cpu_context {
 	regpair af,bc,de,hl;

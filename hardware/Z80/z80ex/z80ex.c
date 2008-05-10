@@ -385,3 +385,9 @@ LIB_EXPORT int z80ex_doing_halt(Z80EX_CONTEXT *cpu)
 {
 	return(cpu->halted);
 }
+
+LIB_EXPORT int z80ex_run(Z80EX_CONTEXT *cpu, int tstates) {
+    register int t = tstates;
+    for(; t > 0; t -= z80ex_step(cpu));
+    return t;
+}

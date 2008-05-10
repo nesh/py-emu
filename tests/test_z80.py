@@ -218,7 +218,6 @@ def _cpu_test(code, data):
     start_pc = cpu.PC
     run_for = data.test_in['icount']
     try:
-        cpu._cpu.TrapBadOps = 1
         ret = cpu.run(run_for)
         
         # check registers
@@ -252,27 +251,9 @@ def _cpu_test(code, data):
         print cpu.disassemble(0, bytes=len(data.test_in['mem'][start_pc]))
         print '='*50
         print 'Test: %X' % code
-        print 'req %dT used %dT overflow %dT' % (run_for, cpu.itotal, -cpu.icount)
+        #print 'req %dT used %dT overflow %dT' % (run_for, cpu.itotal, -cpu.icount)
         print cpu
         raise
-
-def xtest_cpu():
-    """ test cpu instruction set (dir)"""
-    for root, dirs, files in os.walk(_testdir):
-        for name in files:
-            #if not name.endswith('.in') and not name.endswith('.out'):
-            if not name.endswith('.in'):
-                continue
-            n, e = os.path.splitext(name)
-            nn = n[:]
-            if '_' in nn:
-                nn = nn[:-2] # strip _x
-            code = int('0x%s' % nn, 16)
-            inf = open(os.path.join(root, name))
-            outf = open(os.path.join(root, '%s.out' % n))
-            data = TestData(inf.read(), outf.read(), n, code)
-            #_cpu_test.description = 'test %s' % name
-            yield _cpu_test, code, data
 
 def test_cpu_zip():
     """ test cpu instruction set (zip)"""
@@ -281,6 +262,7 @@ def test_cpu_zip():
     for name in zf.namelist():
         if not name.endswith('.in'):
             continue
+        _cpu_test.description = 'test %s' % name
         n, e = os.path.splitext(name)
         nn = n[:]
         if '_' in nn:
@@ -292,7 +274,6 @@ def test_cpu_zip():
             print err
             continue
         yield _cpu_test, code, data
-        #_cpu_test.description = 'test %s' % name
 
 if __name__ == '__main__':
     import nose
