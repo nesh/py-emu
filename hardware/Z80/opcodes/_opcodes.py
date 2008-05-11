@@ -191,6 +191,7 @@ class RLCA(_OpBase):
         ]
 CMDS['RLCA'] = RLCA()
 
+
 class EX(_OpBase):
     def parse(self):
         opcode, dst, src = self.opcode, self.dst, self.src
@@ -265,8 +266,23 @@ class ADD(_OpBase):
         else:
             raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
         return ret
-        
 CMDS['ADD'] = ADD()
+
+
+class RRCA(_OpBase):
+    def parse(self):
+        # F = ( F & ( FLAG_P | FLAG_Z | FLAG_S ) ) | ( A & FLAG_C );\
+        # A = ( A >> 1) | ( A << 7 );\
+        # F |= ( A & ( FLAG_3 | FLAG_5 ) );\
+        return [
+            'a = self.a',
+            'self.f = (self.f & (PF | ZF | SF)) | (a & CF)',
+            'a = (a >> 1) | (a << 7)',
+            'self.f |= (a & (XF | YF))',
+            'self.a = a & 0xFF'
+        ]
+CMDS['RRCA'] = RRCA()
+
 
 # ===============
 # = for testing =
