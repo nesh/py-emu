@@ -295,6 +295,22 @@ class DJNZ(_OpBase):
         ]
 CMDS['DJNZ'] = DJNZ()
 
+
+class RLA(_OpBase):
+    def parse(self):
+        # Z80EX_BYTE bytetemp = A;\
+        # A = ( A << 1 ) | ( F & FLAG_C );\
+        # F = ( F & ( FLAG_P | FLAG_Z | FLAG_S ) ) |\
+        #   ( A & ( FLAG_3 | FLAG_5 ) ) | ( bytetemp >> 7 );\
+        return [
+            'a = self.a',
+            'a = (a << 1) | (self.f & CF)',
+            'self.f = (self.f & (PF | ZF | SF)) | (a & (XF | YF)) | (self.a >> 7)',
+            'self.a = a & 0xFF'
+        ]
+CMDS['RLA'] = RLA()
+
+
 # ===============
 # = for testing =
 # ===============
