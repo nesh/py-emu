@@ -137,6 +137,9 @@ class Z80(CPU, Z80MixinBASE):
         self.bc1 = 0xFFFF
         self.de1 = 0xFFFF
         self.hl1 = 0xFFFF
+        
+        # cpu (internal) flags
+        self.in_halt = False
     
     def register_opcodes(self):
         self._init_base()
