@@ -377,6 +377,38 @@ class CPL(_OpBase):
 CMDS['CPL'] = CPL()
 
 
+class SCF(_OpBase):
+    def parse(self):
+        # F = ( F & ( FLAG_P | FLAG_Z | FLAG_S ) ) |\
+        #   ( A & ( FLAG_3 | FLAG_5          ) ) |\
+        #   FLAG_C;\
+        return [
+            'self.f = (self.f & PZSF) | (self.a & XYF) | CF'
+        ]
+CMDS['SCF'] = SCF()
+
+
+class CCF(_OpBase):
+    def parse(self):
+        # F = ( F & ( FLAG_P | FLAG_Z | FLAG_S ) ) |\
+        #   ( ( F & FLAG_C ) ? FLAG_H : FLAG_C ) | ( A & ( FLAG_3 | FLAG_5 ) );\
+        return [
+            'self.f = (self.f & PZSF) | (HF if self.f & CF else CF) | (self.a & XYF)'
+        ]
+CMDS['CCF'] = CCF()
+
+
+class HALT(_OpBase):
+    def parse(self):
+        # cpu->halted=1;\
+        # PC--;\
+        return [
+            'self.in_halt = True',
+            'self.pc = (self.pc - 1) & 0xFFFF'
+        ]
+CMDS['HALT'] = HALT()
+
+
 # ===============
 # = for testing =
 # ===============
