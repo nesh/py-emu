@@ -2,10 +2,13 @@
 
 PY := genop.py _opcodes.py 
 DAT := opcodes_base.dat opcodes_cb.dat opcodes_ddfd.dat opcodes_ddfdcb.dat opcodes_ed.dat
+GEN := opcodes_base.py opcodes_cb.py opcodes_dd.py opcodes_ddcb.py opcodes_ed.py opcodes_fd.py opcodes_fdcb.py
 
 all: code test
 
-code: ${PY} ${DAT}
+code: ${GEN} ${PY}
+
+%.py: %.dat
 	@./genop.py
 
 test:
