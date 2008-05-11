@@ -8,7 +8,7 @@ CMDS = {}
 # XXX unfold read_*?
 
 _REG8 = ('a', 'f', 'b', 'c', 'd', 'e', 'h', 'l', 'r', 'i', 'ixh', 'ixl', 'iyh', 'iyl')
-_REG16 = ('af', 'bc', 'de', 'hl', 'ix', 'iy', 'pc', 'sp')
+_REG16 = ('af', 'bc', 'de', 'hl', 'ix', 'iy', 'pc', 'sp', 'af1')
 _REG16IND = ('(bc)', '(de)', '(hl)', '(sp)')
 _REGIDX = ('(ix+$)', '(iy+$)')
 
@@ -191,6 +191,24 @@ class RLCA(_OpBase):
         ]
 CMDS['RLCA'] = RLCA()
 
+class EX(_OpBase):
+    def parse(self):
+        opcode, dst, src = self.opcode, self.dst, self.src
+        if (dst in _REG16) and (src in _REG16):
+            return [
+                'self.%(dst)s, self.%(src)s = self.%(src)s, self.%(dst)s' % locals()
+            ]
+        if (dst in _REG16IND) and (src in _REG16):
+            dst = dst[1:-1]
+            return [
+                'tmp = self.%(src)s' % locals(),
+                'self.%(src)s = self.read16(self.%(dst)s)' % locals(),
+                'self.write16(self.%(dst)s, tmp)' % locals(),
+            ]
+        else:
+            raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
+        return ret
+CMDS['EX'] = EX()
 
 # ===============
 # = for testing =
