@@ -284,6 +284,17 @@ class RRCA(_OpBase):
 CMDS['RRCA'] = RRCA()
 
 
+class DJNZ(_OpBase):
+    def parse(self):
+        return [
+            'offset = as_signed(self.read_op_arg())',
+            'self.b = (self.b - 1) & 0xFF',
+            'if self.b:',
+            '%(IDENT)sself.pc = (self.pc + offset) & 0xFFFF' % globals(),
+            '%s%s' % (IDENT, (ADD_T % (5, 5))),
+        ]
+CMDS['DJNZ'] = DJNZ()
+
 # ===============
 # = for testing =
 # ===============
