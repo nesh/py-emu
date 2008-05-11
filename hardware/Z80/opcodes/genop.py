@@ -20,6 +20,7 @@
 import os
 import sys
 import codeop
+import warnings
 
 MYDIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -52,7 +53,9 @@ def convert_to_table(out, type_, table):
 def convert_to_py(out, type_, code, op, tstates):
     bits = op.split()
     opcode = bits[0].upper()
-    if opcode not in CMDS: return False
+    if opcode not in CMDS:
+        warnings.warn('uninplemented %s' % opcode)
+        return False
     ret = CMDS[opcode](type_, code, op, tstates, [b.replace("'", '1') for b in bits])
     if not len(ret): return False # empty
     

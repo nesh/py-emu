@@ -4,3 +4,4 @@ opcodes_ddcb.py
 opcodes_ed.py
 opcodes_fd.py
 opcodes_fdcb.py
+opcodes_base.py
