@@ -466,6 +466,98 @@ class ADC(_OpBase):
 CMDS['ADC'] = ADC()
 
 
+class SUB(_OpBase):
+    def parse(self):
+        opcode, dst, src = self.opcode, self.dst, 'a'
+        if dst in _REG8: # r, r
+            # 8bit
+            # Z80EX_WORD subtemp = A - (value); \
+            # Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+            #           ( ( (value) & 0x88 ) >> 2 ) | \
+            #           (  (subtemp & 0x88 ) >> 1 );  \
+            # A=subtemp;\
+            # F = ( subtemp & 0x100 ? FLAG_C : 0 ) | FLAG_N |\
+            # halfcarry_sub_table[lookup & 0x07] | overflow_sub_table[lookup >> 4] |\
+            # sz53_table[A];\
+            arg = 'self.%(dst)s' % locals()
+        elif dst in _REG16IND: # r, (rr)
+            dst = dst[1:-1]
+            arg = 'self.read(self.%(dst)s)' % locals()
+        elif dst == '#': # r, n
+            arg = 'self.read_op_arg()'
+        elif dst in _REGIDX: # r, (idx+d)
+            reg = 'ix' if 'ix' in dst else 'iy'
+            adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            arg = 'self.read(%(adr)s)' % locals()
+        else:
+            raise ValueError('unhandled pair %(opcode)s: %(dst)s' % locals())
+        ret = [
+                'd = %(arg)s' % locals(),
+                'tmp = self.a - d',
+                'lookup = ((self.a & 0x88) >> 3) | ((d & 0x88) >> 2) | ((tmp & 0x88) >> 1)',
+                'self.a = tmp & 0xFF',
+                'self.f = (CF if tmp & 0x100 else 0) | NF | HC_SUB_TABLE[lookup & 0x07] | OV_SUB_TABLE[lookup >> 4] | SZXY_TABLE[self.a]',
+        ]
+        return ret
+CMDS['SUB'] = SUB()
+
+
+class SBC(_OpBase):
+    def parse(self):
+        opcode, dst, src = self.opcode, self.dst, self.src
+        if dst == 'a':
+            ret = []
+            if src in _REG8: # r, r
+                # Z80EX_WORD sbctemp = A - (value) - ( F & FLAG_C ); \
+                # Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+                #           ( ( (value) & 0x88 ) >> 2 ) | \
+                #           ( ( sbctemp & 0x88 ) >> 1 );  \
+                # A=sbctemp;\
+                # F = ( sbctemp & 0x100 ? FLAG_C : 0 ) | FLAG_N |\
+                # halfcarry_sub_table[lookup & 0x07] | overflow_sub_table[lookup >> 4] |\
+                # sz53_table[A];\
+                arg = 'self.%(src)s' % locals()
+            elif src in _REG16IND: # r, (rr)
+                src = src[1:-1]
+                arg = 'self.read(self.%(src)s)' % locals()
+            elif (dst in _REG8) and (src == '#'): # r, n
+                arg = 'self.read_op_arg()'
+            elif (dst in _REG8) and (src in _REGIDX): # r, (idx+d)
+                reg = 'ix' if 'ix' in src else 'iy'
+                adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+                arg = 'self.read(%(adr)s)' % locals()
+            ret += [
+                    'd = %(arg)s' % locals(),
+                    'tmp = self.a - d - (1 if self.f & CF else 0)',
+                    'lookup = ((self.a & 0x88) >> 3) | ((d & 0x88) >> 2) | ((tmp & 0x88) >> 1)',
+                    'self.a = tmp & 0xFF',
+                    'self.f = (CF if tmp & 0x100 else 0) | NF | HC_SUB_TABLE[lookup & 0x07] | OV_SUB_TABLE[lookup >> 4] | SZXY_TABLE[self.a]',
+            ]
+        elif (dst in _REG16) and (src in _REG16): # rr, rr
+            # Z80EX_DWORD sub16temp = HL - (value) - (F & FLAG_C); \
+            # Z80EX_BYTE lookup = ( (        HL & 0x8800 ) >> 11 ) | \
+            #           ( (   (value) & 0x8800 ) >> 10 ) | \
+            #           ( ( sub16temp & 0x8800 ) >>  9 );  \
+            # MEMPTR=hl+1;\
+            # HL = sub16temp;\
+            # F = ( sub16temp & 0x10000 ? FLAG_C : 0 ) |\
+            # FLAG_N | overflow_sub_table[lookup >> 4] |\
+            # ( H & ( FLAG_3 | FLAG_5 | FLAG_S ) ) |\
+            # halfcarry_sub_table[lookup&0x07] |\
+            # ( HL ? 0 : FLAG_Z) ;\
+            ret = [
+                'v1 = self.hl',
+                'v2 = self.%(src)s' % locals(),
+                'tmp = v1 - v2 - (1 if self.f & CF else 0)',
+                'lookup = ((v1 & 0x0800) >> 11) | ((v2 & 0x0800) >> 10) | ((tmp & 0x0800) >> 9)',
+                'self.hl = tmp & 0xFFFF',
+                'self.f = (CF if tmp & 0x10000 else 0) (self.h & XYSF) | OV_SUB_TABLE[lookup >> 4] | HC_SUB_TABLE[lookup & 0x07] | (0 if v1 else ZF)',
+            ]
+        else:
+            raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
+        return ret
+CMDS['SBC'] = SBC()
+
 # ===============
 # = for testing =
 # ===============
