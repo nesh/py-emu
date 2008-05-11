@@ -29,6 +29,16 @@ F5 = YF
 ZF = 0x40
 SF = 0x80
 
+# =======================
+# = precalculated flags =
+# =======================
+CPZSF = CF | PF | ZF | SF
+XYF = XF | YF
+NHF = NF | HF
+PZSF = PF | ZF | SF
+VZSF = VF | ZF | SF
+CXYF = CF | XF | YF
+
 SZXY_TABLE = None
 SZXYP_TABLE = None
 PARITY_TABLE = None

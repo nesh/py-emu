@@ -14,6 +14,7 @@ _REGIDX = ('(ix+$)', '(iy+$)')
 _COND = ('c', 'z', )
 _NOTCOND = ('nc', 'nz', )
 
+
 class _OpBase(object):
     def parse_bits(self, bits):
         self.opcode = bits[0]
@@ -188,7 +189,7 @@ class RLCA(_OpBase):
         return [
             'a = self.a',
             'a = (a << 1) | (a >> 7)',
-            'self.f = (self.f & (PF | ZF | SF)) | (a & (CF | XF | YF))',
+            'self.f = (self.f & PZSF) | (a & CXYF)',
             'self.a = a & 0xFF'
         ]
 CMDS['RLCA'] = RLCA()
@@ -263,7 +264,7 @@ class ADD(_OpBase):
                 'tmp = v1 + v2',
                 'lookup = ((v1 & 0x0800) >> 11) | ((v2 & 0x0800) >> 10) | ((tmp & 0x0800) >> 9)',
                 'self.%(dst)s = tmp & 0xFFFF' % locals(),
-                'self.f = (self.f & (VF | ZF | SF)) | (CF if tmp & 0x10000 else 0) | ((tmp >> 8) & (XF | YF)) | HC_ADD_TABLE[lookup]',
+                'self.f = (self.f & VZSF) | (CF if tmp & 0x10000 else 0) | ((tmp >> 8) & XYF) | HC_ADD_TABLE[lookup]',
             ]
         else:
             raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
@@ -278,9 +279,9 @@ class RRCA(_OpBase):
         # F |= ( A & ( FLAG_3 | FLAG_5 ) );\
         return [
             'a = self.a',
-            'self.f = (self.f & (PF | ZF | SF)) | (a & CF)',
+            'self.f = (self.f & PZSF) | (a & CF)',
             'a = (a >> 1) | (a << 7)',
-            'self.f |= (a & (XF | YF))',
+            'self.f |= (a & XYF)',
             'self.a = a & 0xFF'
         ]
 CMDS['RRCA'] = RRCA()
@@ -307,7 +308,7 @@ class RLA(_OpBase):
         return [
             'a = self.a',
             'a = (a << 1) | (self.f & CF)',
-            'self.f = (self.f & (PF | ZF | SF)) | (a & (XF | YF)) | (self.a >> 7)',
+            'self.f = (self.f & PZSF) | (a & XYF) | (self.a >> 7)',
             'self.a = a & 0xFF'
         ]
 CMDS['RLA'] = RLA()
@@ -346,7 +347,7 @@ class RRA(_OpBase):
         return [
             'a = self.a',
             'a = (a >> 1) | (self.f << 7)',
-            'self.f = (self.f & (PF | ZF | SF)) | (a & (XF | YF)) | (self.a & CF)',
+            'self.f = (self.f & PZSF) | (a & XYF) | (self.a & CF)',
             'self.a = a & 0xFF'
         ]
 CMDS['RRA'] = RRA()
@@ -371,7 +372,7 @@ class CPL(_OpBase):
         #   ( A & ( FLAG_3 | FLAG_5 ) ) | ( FLAG_N | FLAG_H );\
         return [
             'self.a ^= 0xFF',
-            'self.f = (self.f & (CF | PF | ZF | SF)) | (self.a & (XF | YF)) | (NF | HF)'
+            'self.f = (self.f & CPZSF) | (self.a & XYF) | NHF'
         ]
 CMDS['CPL'] = CPL()
 
