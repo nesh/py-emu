@@ -178,6 +178,20 @@ class DEC(_OpBase):
 CMDS['DEC'] = DEC()
 
 
+class RLCA(_OpBase):
+    def parse(self):
+        # A = ( A << 1 ) | ( A >> 7 );\
+        # F = ( F & ( FLAG_P | FLAG_Z | FLAG_S ) ) |\
+        #   ( A & ( FLAG_C | FLAG_3 | FLAG_5 ) );\
+        return [
+            'a = self.a',
+            'a = (a << 1) | (a >> 7)',
+            'self.f = (self.f & (PF | ZF | SF)) | (a & (CF | XF | YF))',
+            'self.a = a & 0xFF'
+        ]
+CMDS['RLCA'] = RLCA()
+
+
 # ===============
 # = for testing =
 # ===============
