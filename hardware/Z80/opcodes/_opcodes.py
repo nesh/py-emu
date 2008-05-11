@@ -337,6 +337,21 @@ class JR(_OpBase):
 CMDS['JR'] = JR()
 
 
+class RRA(_OpBase):
+    def parse(self):
+        # Z80EX_BYTE bytetemp = A;\
+        # A = ( A >> 1 ) | ( F << 7 );\
+        # F = ( F & ( FLAG_P | FLAG_Z | FLAG_S ) ) |\
+        #   ( A & ( FLAG_3 | FLAG_5 ) ) | ( bytetemp & FLAG_C ) ;\
+        return [
+            'a = self.a',
+            'a = (a >> 1) | (self.f << 7)',
+            'self.f = (self.f & (PF | ZF | SF)) | (a & (XF | YF)) | (self.a & CF)',
+            'self.a = a & 0xFF'
+        ]
+CMDS['RRA'] = RRA()
+
+
 # ===============
 # = for testing =
 # ===============
