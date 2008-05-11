@@ -36,11 +36,11 @@ PARITY_TABLE = None
 def _init_tables():
     global SZXY_TABLE, SZXYP_TABLE, PARITY_TABLE
     
+    if PARITY_TABLE is not None: return
+
     SZXY_TABLE = []
     SZXYP_TABLE = []
     PARITY_TABLE = []
-    
-    if PARITY_TABLE is not None: return
     
     for i in range(0, 0x100):
         SZXY_TABLE.append(i & ( XF | YF | SF ))
@@ -63,6 +63,10 @@ def _init_tables():
 
 _init_tables()
 del _init_tables
+
+assert len(SZXY_TABLE) == 0x100, '%d' % len(SZXY_TABLE)
+assert len(SZXYP_TABLE) == 0x100, '%d' % len(SZXYP_TABLE)
+assert len(PARITY_TABLE) == 0x100, '%d' % len(PARITY_TABLE)
 
 # =================
 # = static tables =
