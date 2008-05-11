@@ -4,3 +4,4 @@
 *.log
 # private data dir
 private
+* copy.py

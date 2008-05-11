@@ -174,7 +174,7 @@ class TestData(object):
     def dasm(self):
         mem = RAM(16, 8)
         io = RAM(16, 8)
-        cpu = Z80(1, mem, io)
+        cpu = Z80(mem, io)
         if self.test_in:
             for a, l in self.test_in['mem'].iteritems():
                 i = 0
@@ -197,17 +197,7 @@ class TIO(RAM):
 
 mem = RAM(16, 8)
 io = TIO(16, 8)
-cpu = Z80(1, mem, io)
-
-def test_reset():
-    """ reset state """
-    cpu.reset()
-    assert cpu.pc == 0x0000
-    assert not cpu.iff1
-    assert not cpu.iff2
-    assert cpu.im == 0
-    for r in ('af', 'sp', 'bc', 'de', 'hl', 'af1', 'bc1', 'de1', 'hl1', 'ix', 'iy'):
-        assert getattr(cpu, r) == 0xFFFF, 'invalid after reset value for %s' % r
+cpu = Z80(mem, io)
 
 def _cpu_test(code, data):
     """ CPU instruction test """
@@ -226,12 +216,10 @@ def _cpu_test(code, data):
     start_pc = cpu.pc
     run_for = data.test_in['icount']
     try:
-        cpu._cpu.TrapBadOps = 1
         ret = cpu.run(run_for)
         
         # check registers
         for reg, val in data.test_out['regs'].items():
-            reg = reg.lower()
             r = getattr(cpu, reg)
             if reg == 'af':
                 assert r == val, '%s(%04X) != %04X (F: %s)' % (reg, r, val, cpu.flags_as_str(val & 0xFF))
@@ -260,8 +248,8 @@ def test_cpu_zip():
     zf = zipfile.ZipFile(_testzip, 'r')
     
     for name in zf.namelist():
-        if not name.endswith('.in'):
-            continue
+        if not name.endswith('.in'): continue
+        _cpu_test.description = 'Z80: test %s' % name
         n, e = os.path.splitext(name)
         nn = n[:]
         if '_' in nn:
@@ -273,7 +261,6 @@ def test_cpu_zip():
             print err
             continue
         yield _cpu_test, code, data
-        #_cpu_test.description = 'test %s' % name
 
 if __name__ == '__main__':
     import nose

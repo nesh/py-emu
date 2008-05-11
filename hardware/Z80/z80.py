@@ -1,17 +1,17 @@
 # Copyright 2008 Djordjevic Nebojsa <djnesh@gmail.com>
-# 
+#
 # This file is part of py-emu.
-# 
+#
 # py-emu is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # py-emu is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with py-emu.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -23,15 +23,7 @@ Z80 CPU core
 import random
 
 # app
-from hardware.cpu import (
-    CPU, CPUTrapInvalidOP,
-    _add_cycles,
-    cpu_inc_t,
-    cpu_reset,
-    cpu_irq,
-    cpu_nmi,
-)
-
+from hardware.cpu import CPU, CPUTrapInvalidOP
 from tools import *
 from dasm import *
 from opcodes import *
@@ -41,17 +33,19 @@ __all__ = ('Z80',)
 class Z80(CPU, Z80MixinBASE):
     IM0, IM1, IM0_1 = range(0, 3)
     
-    def __init__(self, break_afer, mem, io=None):
-        super(Z80, self).__init__(break_afer, mem, io)
+    def __init__(self, mem, io=None):
+        super(Z80, self).__init__(mem, io)
         self.reset()
         
-        # # shortcuts
-        # self.read = self.mem.read
-        # self.write = self.mem.write
+        # shortcuts
+        self.read = self.mem.read
+        self.write = self.mem.write
+        self.io_read = self.io.read
+        self.io_write = self.io.write
         
         # initialize opcodes
-        self._init_base()
-        
+        self.register_opcodes()
+    
     def disassemble(self, address, bytes=1, dump_adr=True, dump_hex=True):
         ret = []
         while bytes > 0:
@@ -73,37 +67,34 @@ class Z80(CPU, Z80MixinBASE):
         return '\n'.join(ret)
     
     def run(self, cycles=0):
-        pass
-        # # run until we spend all cycles
-        # # TODO IRQs
-        # self.T += cycles
-        # 
-        # while self.T >= 0:
-        #     old_pc = self.pc
-        #     op = self.read_op()
-        #     t = CYCLES[op]
-        #     
-        #     try:
-        #         self._op[op]()
-        #     except KeyError:
-        #         raise CPUTrapInvalidOP('Invalid opcode %02X: %s' % (op, self.disassemble(old_pc)))
-        #     self.abs_T += t
-        #     self.T -= t
+        # run until we spend all cycles
+        # TODO IRQs
+        self.icount += cycles
+        while self.icount > 0:
+            op = self.read_op()
+            self.r = (self.r + 1) & 0x7F # R is 7bit
+            self._base[op]()
     
     # =================
     # = mem I/O stuff =
     # =================
-    def read16(self, adr, w1=None, w2=None):
+    def read16(self, adr):
         r = self.read # shortcut
-        return r(adr, w1) + (r(adr + 1, w2) * 256)
+        return r(adr) + (r(adr + 1) * 256)
     
-    def write16(self, adr, val, w1=None, w2=None):
+    def write16(self, adr, val):
         w = self.write # shortcut
-        w(adr, val, w1) # no need for & 0xFF, memory will do this
-        w(adr + 1, val >> 8, w2)
+        w(adr, val) # no need for & 0xFF, memory will do this
+        w(adr + 1, val >> 8)
+    
+    def read_op(self):
+        ret = self.read(self.pc)
+        self.pc = (self.pc + 1) & 0xFFFF
+        return ret
+    read_op_arg = read_op
     
     def read_op_arg16(self):
-        r = self.read_op # shortcut
+        r = self.read_op_arg # shortcut
         return r() + (r() * 256)
     
     def flags_as_str(self, val = None):
@@ -121,7 +112,7 @@ class Z80(CPU, Z80MixinBASE):
                   ))
         ret.append('F: %s' % self.flags_as_str())
         return '\n'.join(ret)
-
+    
     def reset(self):
         super(Z80, self).reset()
         
@@ -146,123 +137,95 @@ class Z80(CPU, Z80MixinBASE):
         self.bc1 = 0xFFFF
         self.de1 = 0xFFFF
         self.hl1 = 0xFFFF
-        
-        # internal flags
-        self.noint_once = False
-        self.halt = False
-        self.int_vector_req = 0
-        
-
-    # =======
-    # = I/O =
-    # =======
-    def read_port(self, port, wait=0):
-        if wait: self._wait_until(wait)
-        return self.io.read(port)
-    
-    def write_port(self, port, value, wait=0):
-        """ write port """
-        if wait: self._wait_until(wait)
-        self.io.write(port, value)
-
-    # 16b regs
-    # TODO see which 16b regs are more used and use them like Ix regs
-    #      instead of using them as two 8b regs -- HL?
-    
-    # AF
-    def _gAF(self):
-        return self.f + (self.a * 256)
-    def _sAF(self, val):
-        self.f = val & 0xFF
-        self.f = (val >> 8) & 0xFF
-    AF = property(fget=_gAF, fset=_sAF)
-    af = property(fget=_gAF, fset=_sAF)
-    
-    # BC
-    def _gBC(self):
-        return self.C + (self.B * 256)
-    def _sBC(self, val):
-        self.C = val & 0xFF
-        self.B = (val >> 8) & 0xFF
-    BC = property(fget=_gBC, fset=_sBC)
-    
-    # DE
-    def _gDE(self):
-        return self.E + (self.D * 256)
-    def _sDE(self, val):
-        self.E = val & 0xFF
-        self.D = (val >> 8) & 0xFF
-    DE = property(fget=_gDE, fset=_sDE)
-    
-    # HL
-    def _gHL(self):
-        return self.L + (self.H * 256)
-    def _sHL(self, val):
-        self.L = val & 0xFF
-        self.H = (val >> 8) & 0xFF
-    HL = property(fget=_gHL, fset=_sHL)
-    
-    # (HL)
-    def _gHLind(self):
-        return self.read(self.HL)
-    def _sHLind(self, val):
-        self.write(self.HL, val)
-    HL_ind = property(fget=_gHLind, fset=_sHLind)
-    
-    # index lo/hi
-    def _gIXL(self):
-        return self.IX & 0xFF
-    def _sIXL(self, val):
-        self.IX = (self.IX & 0xFF00) + (val & 0xFF)
-    IXL = property(fget=_gIXL, fset=_sIXL)
-    
-    def _gIXH(self):
-        return (self.IX >> 8) & 0xFF
-    def _sIXH(self, val):
-        self.IX = ((val & 0xFF) * 256) + (self.IX & 0xFF)
-    IXH = property(fget=_gIXH, fset=_sIXH)
-    
-    def _gIYL(self):
-        return self.IY & 0xFF
-    def _sIYL(self, val):
-        self.IY = (self.IY & 0xFF00) + (val & 0xFF)
-    IYL = property(fget=_gIYL, fset=_sIYL)
-    
-    def _gIYH(self):
-        return (self.IY >> 8) & 0xFF
-    def _sIYH(self, val):
-        self.IY = ((val & 0xFF) * 256) + (self.IY & 0xFF)
-    IYH = property(fget=_gIYH, fset=_sIYH)
-    
-    # ====================
-    # = Standard opcodes =
-    # ====================
-    
-    def nop(self):
-        pass
     
     def register_opcodes(self):
-        self._create_8b_load()
-        # ============
-        # = standard =
-        # ============
-        self._op[NOP] = self.nop
-
+        self._init_base()
+    
     def get_state(self):
         """get cpu state
-
+           
            return dict with current cpu state
         """
         raise NotImplementedError('%s.get_state() is not implemented' % self.__class__)
-
+    
     def set_state(self, state):
         """set cpu state
-
+           
            set current cpu state with state dict
         """
         for k, v in state.items():
-            k = k.upper()
-            if k != 'F':
+            if hasattr(self, k):
                 setattr(self, k, v)
             else:
-                self.F.byte = v
+                raise KeyError("Z80 don't have attribute %s" % k)
+    
+    # =============
+    # = registers =
+    # =============
+    
+    def _get_af(self):
+        return (self.a << 8) | self.f
+    def _set_af(self, val):
+        self.a = (val & 0xFF00) >> 8
+        self.f = val & 0xFF
+    af = property(fset=_set_af, fget=_get_af)
+    
+    def _get_bc(self):
+        return (self.b << 8) | self.c
+    def _set_bc(self, val):
+        self.b = (val & 0xFF00) >> 8
+        self.c = val & 0xFF
+    bc = property(fset=_set_bc, fget=_get_bc)
+
+    def _get_de(self):
+        return (self.d << 8) | self.e
+    def _set_de(self, val):
+        self.d = (val & 0xFF00) >> 8
+        self.e = val & 0xFF
+    de = property(fset=_set_de, fget=_get_de)
+
+    # def _get_hl(self):
+    #     return (self.h << 8) | self.l
+    # def _set_hl(self, val):
+    #     self.h = (val & 0xFF00) >> 8
+    #     self.l = val & 0xFF
+    # hl = property(fset=_set_hl, fget=_get_hl)
+
+    def _get_h(self):
+        return (self.hl & 0xFF00) >> 8
+    def _set_h(self, val):
+        self.hl = (self.hl & 0x00FF) | ((val & 0xFF) << 8)
+    h = property(fget=_get_h, fset=_set_h)
+
+    def _get_l(self):
+        return self.hl & 0xFF
+    def _set_l(self, val):
+        self.hl = (self.hl & 0xFF00) | (val & 0xFF)
+    l = property(fget=_get_l, fset=_set_l)
+
+    # ==================
+    # = IX/IY high/low =
+    # ==================
+    def _get_ixh(self):
+        return (self.ix & 0xFF00) >> 8
+    def _set_ixh(self, val):
+        self.ix = (self.ix & 0x00FF) | ((val & 0xFF) << 8)
+    ixh = property(fget=_get_ixh, fset=_set_ixh)
+
+    def _get_ixl(self):
+        return self.ix & 0xFF
+    def _set_ixl(self, val):
+        self.ix = (self.ix & 0xFF00) | (val & 0xFF)
+    ixl = property(fget=_get_ixl, fset=_set_ixl)
+
+    def _get_iyh(self):
+        return (self.iy & 0xFF00) >> 8
+    def _set_iyh(self, val):
+        self.iy = (self.iy & 0x00FF) | ((val & 0xFF) << 8)
+    iyh = property(fget=_get_iyh, fset=_set_iyh)
+
+    def _get_iyl(self):
+        return self.iy & 0xFF
+    def _set_iyl(self, val):
+        self.iy = (self.iy & 0xFF00) | (val & 0xFF)
+    iyl = property(fget=_get_iyl, fset=_set_iyl)
