@@ -364,6 +364,18 @@ class DAA(_OpBase):
 CMDS['DAA'] = DAA()
 
 
+class CPL(_OpBase):
+    def parse(self):
+        # A ^= 0xff;\
+        # F = ( F & ( FLAG_C | FLAG_P | FLAG_Z | FLAG_S ) ) |\
+        #   ( A & ( FLAG_3 | FLAG_5 ) ) | ( FLAG_N | FLAG_H );\
+        return [
+            'self.a ^= 0xFF',
+            'self.f = (self.f & (CF | PF | ZF | SF)) | (self.a & (XF | YF)) | (NF | HF)'
+        ]
+CMDS['CPL'] = CPL()
+
+
 # ===============
 # = for testing =
 # ===============
