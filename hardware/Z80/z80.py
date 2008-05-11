@@ -30,7 +30,7 @@ from opcodes import *
 
 __all__ = ('Z80',)
 
-class Z80(CPU, Z80MixinBASE):
+class Z80(CPU, Z80MixinBASE, Z80MixinCB, Z80MixinDD, Z80MixinDDCB, Z80MixinED, Z80MixinFD, Z80MixinFDCB):
     IM0, IM1, IM0_1 = range(0, 3)
     
     def __init__(self, mem, io=None):
@@ -73,7 +73,40 @@ class Z80(CPU, Z80MixinBASE):
         while self.icount > 0:
             op = self.read_op()
             self.r = (self.r + 1) & 0x7F # R is 7bit
-            self._base[op]()
+            self.no_irq_once = False
+            ofn = None
+            
+            if not self.prefix:
+                ofn = self._base[op]
+            else:
+                if (self.prefix | 0x20 == 0xFD) and ((op | 0x20) == 0xFD) or (op == 0xED):
+                    self.prefix = op
+                    self.no_irq_once = True # interrupts are not accepted immediately after prefix
+                else:
+                    if self.prefix in (0xDD, 0xFD):
+                        if op == 0xCB:
+                            d = as_signed(self.read_op_arg()) # displacement
+                            op = self.read_op()
+                            ofn = self._ddcb[op] if self.prefix == 0xDD else self._fdcb[op]
+                            ofn(d) # special case
+                            continue
+                        else:
+                            ofn = self._dd[op] if self.prefix == 0xDD else self._fd[op]
+                            if ofn is None:
+                                ofn = self._base[op] # 'mirrored' instructions
+                    elif self.prefix == 0xED:
+                        ofn = self._ed[op]
+                        if ofn is None:
+                            ofn = self._base[op] # 'mirrored' instructions
+                    elif self.prefix == 0xCB:
+                        ofn = self._cb[op]
+                    else:
+                        raise CPUTrapInvalidOP('%02X%02X' % (self.prefix, op))
+            if ofn is not None:
+                ofn()
+            else:
+                raise CPUTrapInvalidOP('%02X' % op)
+        # TODO IRQ
     
     # =================
     # = mem I/O stuff =
@@ -140,6 +173,14 @@ class Z80(CPU, Z80MixinBASE):
         
         # cpu (internal) flags
         self.in_halt = False
+        self.prefix = 0
+        self.no_irq_once = False
+    
+    def _cb(self):
+        # cb prefix
+        op = self.read_op()
+        self.r = (self.r + 1) & 0x7F # R is 7bit
+        self._base[op]()
     
     def register_opcodes(self):
         self._init_base()
