@@ -17,7 +17,7 @@ class _OpBase(object):
         self.opcode = bits[0]
         if len(bits) > 1:
             args = bits[1].split(',')
-    
+            
             self.dst = args[0].lower()
             if len(args) > 1:
                 self.src = args[1].lower()
@@ -89,13 +89,13 @@ CMDS['LD'] = LD()
 class INC(_OpBase):
     def parse(self):
         opcode, dst = self.opcode, self.dst
-
+        
         # (value)++;\
         # F = ( F & FLAG_C ) | ( (value)==0x80 ? FLAG_V : 0 ) |\
         #   ( (value)&0x0f ? 0 : FLAG_H ) | sz53_table[(value)];\
         flags8 = 'self.f = (self.f & CF) | (VF if v == 0x80 else 0) ' \
                  '| (0 if v & 0x0F else HF) | SZXY_TABLE[v]'
-
+        
         if dst in _REG16IND:
             dst = dst[1:-1]
             ret = [
@@ -134,7 +134,7 @@ CMDS['INC'] = INC()
 class DEC(_OpBase):
     def parse(self):
         opcode, dst = self.opcode, self.dst
-
+        
         # F = ( F & FLAG_C ) | ( (value)&0x0f ? 0 : FLAG_H ) | FLAG_N;\
         # (value)--;\
         # F |= ( (value)==0x7f ? FLAG_V : 0 ) | sz53_table[value];\

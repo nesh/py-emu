@@ -176,33 +176,33 @@ class Z80(CPU, Z80MixinBASE):
         self.b = (val & 0xFF00) >> 8
         self.c = val & 0xFF
     bc = property(fset=_set_bc, fget=_get_bc)
-
+    
     def _get_de(self):
         return (self.d << 8) | self.e
     def _set_de(self, val):
         self.d = (val & 0xFF00) >> 8
         self.e = val & 0xFF
     de = property(fset=_set_de, fget=_get_de)
-
+    
     # def _get_hl(self):
     #     return (self.h << 8) | self.l
     # def _set_hl(self, val):
     #     self.h = (val & 0xFF00) >> 8
     #     self.l = val & 0xFF
     # hl = property(fset=_set_hl, fget=_get_hl)
-
+    
     def _get_h(self):
         return (self.hl & 0xFF00) >> 8
     def _set_h(self, val):
         self.hl = (self.hl & 0x00FF) | ((val & 0xFF) << 8)
     h = property(fget=_get_h, fset=_set_h)
-
+    
     def _get_l(self):
         return self.hl & 0xFF
     def _set_l(self, val):
         self.hl = (self.hl & 0xFF00) | (val & 0xFF)
     l = property(fget=_get_l, fset=_set_l)
-
+    
     # ==================
     # = IX/IY high/low =
     # ==================
@@ -211,19 +211,19 @@ class Z80(CPU, Z80MixinBASE):
     def _set_ixh(self, val):
         self.ix = (self.ix & 0x00FF) | ((val & 0xFF) << 8)
     ixh = property(fget=_get_ixh, fset=_set_ixh)
-
+    
     def _get_ixl(self):
         return self.ix & 0xFF
     def _set_ixl(self, val):
         self.ix = (self.ix & 0xFF00) | (val & 0xFF)
     ixl = property(fget=_get_ixl, fset=_set_ixl)
-
+    
     def _get_iyh(self):
         return (self.iy & 0xFF00) >> 8
     def _set_iyh(self, val):
         self.iy = (self.iy & 0x00FF) | ((val & 0xFF) << 8)
     iyh = property(fget=_get_iyh, fset=_set_iyh)
-
+    
     def _get_iyl(self):
         return self.iy & 0xFF
     def _set_iyl(self, val):

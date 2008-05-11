@@ -2,19 +2,19 @@
 # -*- coding:utf-8
 
 # Copyright 2008 Djordjevic Nebojsa <djnesh@gmail.com>
-# 
+#
 # This file is part of py-emu.
-# 
+#
 # py-emu is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # py-emu is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with py-emu.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -40,11 +40,11 @@ _testdir = os.path.join(os.path.dirname(__file__), 'z80_test_data')
 
 def tohex(a):
     return int('0x%s' % a, 16)
-
     
+
 class DataError(Exception):
     pass
-    
+
 class TestData(object):
     def __init__(self, bytes_in, bytes_out, test, code):
         super(TestData, self).__init__()
@@ -212,7 +212,7 @@ def _cpu_test(code, data):
             a += len(l)
     
     cpu.reset()
-
+    
     cpu.set_state(data.test_in['regs'])
     oldcpu = str(cpu)
     start_pc = cpu.pc

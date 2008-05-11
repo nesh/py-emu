@@ -1,19 +1,19 @@
 #!/usr/bin/env python2.5
 
 # Copyright 2008 Djordjevic Nebojsa <djnesh@gmail.com>
-# 
+#
 # This file is part of py-emu.
-# 
+#
 # py-emu is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # py-emu is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with py-emu.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -47,9 +47,6 @@ def convert_to_table(out, type_, table):
     if len(ret):
         print >>out, '\n'.join(ret)
 
-
-
-
 def convert_to_py(out, type_, code, op, tstates):
     bits = op.split()
     opcode = bits[0].upper()
@@ -77,11 +74,10 @@ def convert_to_py(out, type_, code, op, tstates):
         src.append('%s%s' % (IDENT*2, l.rstrip()))
     src.append('%s# end' % (IDENT*2))
     src.append('%s' % IDENT)
-
+    
     codeop.compile_command('\n'.join([s[len(IDENT):] for s in src]), opcode.lower()) # check syntax
     print >>out, '\n'.join(src)
     return True
-
 
 def process_ofile(fname, name, dasm_fh):
     print 'Processing %s (%s)' % (fname, name)
