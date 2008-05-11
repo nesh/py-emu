@@ -352,6 +352,18 @@ class RRA(_OpBase):
 CMDS['RRA'] = RRA()
 
 
+class DAA(_OpBase):
+    def parse(self):
+        # const Z80EX_BYTE *tdaa = (daatab+(A+0x100*((F & 3) + ((F >> 2) & 4)))*2);\
+        # F = *tdaa; A = *(tdaa + 1);\
+        return [
+            'idx = (self.a + 0x100 * ((self.f & 3) + ((self.f >> 2) & 4))) * 2',
+            'self.f = DAA_TABLE[idx]',
+            'self.a = DAA_TABLE[idx + 1]',
+        ]
+CMDS['DAA'] = DAA()
+
+
 # ===============
 # = for testing =
 # ===============
