@@ -210,6 +210,64 @@ class EX(_OpBase):
         return ret
 CMDS['EX'] = EX()
 
+
+class ADD(_OpBase):
+    def parse(self):
+        opcode, dst, src = self.opcode, self.dst, self.src
+        if dst == 'a':
+            ret = []
+            if src in _REG8: # r, r
+                # 8bit
+                # Z80EX_WORD addtemp = A + (value); \
+                # Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+                #           ( ( (value) & 0x88 ) >> 2 ) | \
+                #           ( ( addtemp & 0x88 ) >> 1 );  \
+                # A=addtemp;\
+                # F = ( addtemp & 0x100 ? FLAG_C : 0 ) |\
+                #   halfcarry_add_table[lookup & 0x07] | overflow_add_table[lookup >> 4] |\
+                #   sz53_table[A];\
+                arg = 'self.%(src)s' % locals()
+            elif src in _REG16IND: # r, (rr)
+                src = src[1:-1]
+                arg = 'self.read(self.%(src)s)' % locals()
+            elif (dst in _REG8) and (src == '#'): # r, n
+                arg = 'self.read_op_arg()'
+            elif (dst in _REG8) and (src in _REGIDX): # r, (idx+d)
+                reg = 'ix' if 'ix' in src else 'iy'
+                adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+                arg = 'self.read(%(adr)s)' % locals()
+            ret += [
+                    'd = %(arg)s' % locals(),
+                    'tmp = self.a + d',
+                    'lookup = ((d & 0x88) >> 3) | ((self.a & 0x88) >> 2) | ((tmp & 0x88) >> 1)',
+                    'self.a = tmp & 0xFF',
+                    'self.f = (CF if tmp & 0x100 else 0) | HC_ADD_TABLE[lookup & 0x07] | OV_ADD_TABLE[lookup >> 4] | SZXY_TABLE[self.a]',
+            ]
+        elif (dst in _REG16) and (src in _REG16): # rr, rr
+            # Z80EX_DWORD add16temp = (value1) + (value2); \
+            # Z80EX_BYTE lookup = ( (  (value1) & 0x0800 ) >> 11 ) | \
+            #           ( (  (value2) & 0x0800 ) >> 10 ) | \
+            #           ( ( add16temp & 0x0800 ) >>  9 );  \
+            # MEMPTR=value1+1;\
+            # (value1) = add16temp;\
+            # F = ( F & ( FLAG_V | FLAG_Z | FLAG_S ) ) |\
+            #   ( add16temp & 0x10000 ? FLAG_C : 0 )|\
+            #   ( ( add16temp >> 8 ) & ( FLAG_3 | FLAG_5 ) ) |\
+            #   halfcarry_add_table[lookup];\
+            ret = [
+                'v1 = self.%(dst)s' % locals(),
+                'v2 = self.%(src)s' % locals(),
+                'tmp = v1 + v2',
+                'lookup = ((v1 & 0x0800) >> 11) | ((v2 & 0x0800) >> 10) | ((tmp & 0x0800) >> 9)',
+                'self.%(dst)s = tmp & 0xFFFF' % locals(),
+                'self.f = (self.f & (VF | ZF | SF)) | (CF if tmp & 0x10000 else 0) | ((tmp >> 8) & (XF | YF)) | HC_ADD_TABLE[lookup]',
+            ]
+        else:
+            raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
+        return ret
+        
+CMDS['ADD'] = ADD()
+
 # ===============
 # = for testing =
 # ===============
