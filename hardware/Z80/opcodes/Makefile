@@ -6,9 +6,9 @@ GEN := opcodes_base.py opcodes_cb.py opcodes_dd.py opcodes_ddcb.py opcodes_ed.py
 
 all: code test
 
-code: ${GEN} ${PY}
+code: ${GEN} 
 
-%.py: %.dat
+%.py: %.dat ${PY}
 	@./genop.py
 
 test:
