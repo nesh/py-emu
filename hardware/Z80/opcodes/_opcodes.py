@@ -11,6 +11,8 @@ _REG8 = ('a', 'f', 'b', 'c', 'd', 'e', 'h', 'l', 'r', 'i', 'ixh', 'ixl', 'iyh', 
 _REG16 = ('af', 'bc', 'de', 'hl', 'ix', 'iy', 'pc', 'sp', 'af1')
 _REG16IND = ('(bc)', '(de)', '(hl)', '(sp)')
 _REGIDX = ('(ix+$)', '(iy+$)')
+_COND = ('c', 'z', )
+_NOTCOND = ('nc', 'nz', )
 
 class _OpBase(object):
     def parse_bits(self, bits):
@@ -309,6 +311,30 @@ class RLA(_OpBase):
             'self.a = a & 0xFF'
         ]
 CMDS['RLA'] = RLA()
+
+
+class JR(_OpBase):
+    def parse(self):
+        opcode, flag = self.opcode, self.dst
+        ret = ['offset = as_signed(self.read_op_arg())']
+        if flag == '%':
+            ret += ['self.pc = (self.pc + offset) & 0xFFFF']
+        elif flag in _COND:
+            ret += [
+                'if self.f & %sF:' % flag.upper(),
+                '%(IDENT)sself.pc = (self.pc + offset) & 0xFFFF' % globals(),
+                '%s%s' % (IDENT, (ADD_T % (5, 5))),
+            ]
+        elif flag in _NOTCOND:
+            ret += [
+                'if not (self.f & %sF):' % flag[1].upper(),
+                '%(IDENT)sself.pc = (self.pc + offset) & 0xFFFF' % globals(),
+                '%s%s' % (IDENT, (ADD_T % (5, 5))),
+            ]
+        else:
+            raise ValueError('unhandled flag %(opcode)s: %(flag)s' % locals())
+        return ret
+CMDS['JR'] = JR()
 
 
 # ===============
