@@ -409,6 +409,63 @@ class HALT(_OpBase):
 CMDS['HALT'] = HALT()
 
 
+class ADC(_OpBase):
+    def parse(self):
+        opcode, dst, src = self.opcode, self.dst, self.src
+        if dst == 'a':
+            ret = []
+            if src in _REG8: # r, r
+                # Z80EX_WORD adctemp = A + (value) + ( F & FLAG_C ); \
+                # Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+                #           ( ( (value) & 0x88 ) >> 2 ) | \
+                #           ( ( adctemp & 0x88 ) >> 1 );  \
+                # A=adctemp;\
+                # F = ( adctemp & 0x100 ? FLAG_C : 0 ) |\
+                #   halfcarry_add_table[lookup & 0x07] | overflow_add_table[lookup >> 4] |\
+                #   sz53_table[A];\
+                arg = 'self.%(src)s' % locals()
+            elif src in _REG16IND: # r, (rr)
+                src = src[1:-1]
+                arg = 'self.read(self.%(src)s)' % locals()
+            elif (dst in _REG8) and (src == '#'): # r, n
+                arg = 'self.read_op_arg()'
+            elif (dst in _REG8) and (src in _REGIDX): # r, (idx+d)
+                reg = 'ix' if 'ix' in src else 'iy'
+                adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+                arg = 'self.read(%(adr)s)' % locals()
+            ret += [
+                    'd = %(arg)s' % locals(),
+                    'tmp = self.a + d + (1 if self.f & CF else 0)',
+                    'lookup = ((self.a & 0x88) >> 3) | ((d & 0x88) >> 2) | ((tmp & 0x88) >> 1)',
+                    'self.a = tmp & 0xFF',
+                    'self.f = (CF if tmp & 0x100 else 0) | HC_ADD_TABLE[lookup & 0x07] | OV_ADD_TABLE[lookup >> 4] | SZXY_TABLE[self.a]',
+            ]
+        elif (dst in _REG16) and (src in _REG16): # rr, rr
+            # Z80EX_DWORD add16temp= HL + (value) + ( F & FLAG_C ); \
+            # Z80EX_BYTE lookup = ( (        HL & 0x8800 ) >> 11 ) | \
+            #           ( (   (value) & 0x8800 ) >> 10 ) | \
+            #           ( ( add16temp & 0x8800 ) >>  9 );  \
+            # MEMPTR=hl+1;\
+            # HL = add16temp;\
+            # F = ( add16temp & 0x10000 ? FLAG_C : 0 )|\
+            #   overflow_add_table[lookup >> 4] |\
+            #   ( H & ( FLAG_3 | FLAG_5 | FLAG_S ) ) |\
+            #   halfcarry_add_table[lookup&0x07]|\
+            #   ( HL ? 0 : FLAG_Z );\
+            ret = [
+                'v1 = self.hl',
+                'v2 = self.%(src)s' % locals(),
+                'tmp = v1 + v2 + (1 if self.f & CF else 0)',
+                'lookup = ((v1 & 0x0800) >> 11) | ((v2 & 0x0800) >> 10) | ((tmp & 0x0800) >> 9)',
+                'self.hl = tmp & 0xFFFF',
+                'self.f = (CF if tmp & 0x10000 else 0) (self.h & XYSF) | OV_ADD_TABLE[lookup >> 4] | HC_ADD_TABLE[lookup & 0x07] | (0 if v1 else ZF)',
+            ]
+        else:
+            raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
+        return ret
+CMDS['ADC'] = ADC()
+
+
 # ===============
 # = for testing =
 # ===============

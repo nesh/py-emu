@@ -34,6 +34,7 @@ SF = 0x80
 # =======================
 CPZSF = CF | PF | ZF | SF
 XYF = XF | YF
+XYSF = XF | YF | SF
 NHF = NF | HF
 PZSF = PF | ZF | SF
 VZSF = VF | ZF | SF
