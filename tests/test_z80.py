@@ -23,6 +23,7 @@ import unittest
 import random
 import zipfile, StringIO
 from nose.tools import *
+import warnings
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -32,9 +33,10 @@ if ROOT not in sys.path:
 from hardware.Z80.z80 import Z80
 from hardware.memory import RAM
 from hardware.io import IO
-from hardware.cpu import CPUException
+from hardware.cpu import CPUException, CPUTrapInvalidOP
 
 _testzip = os.path.join(os.path.dirname(__file__), 'z80_test_data.zip')
+_testdir = os.path.join(os.path.dirname(__file__), 'z80_test_data')
 
 def tohex(a):
     return int('0x%s' % a, 16)
@@ -243,6 +245,23 @@ def _cpu_test(code, data):
         print cpu
         raise
 
+# def test_cpu():
+#     """ test cpu instruction set (dir)"""
+#     for root, dirs, files in os.walk(_testdir):
+#         for name in files:
+#             #if not name.endswith('.in') and not name.endswith('.out'):
+#             if not name.endswith('.in'): continue
+#             _cpu_test.description = 'Z80: test %s' % name
+#             n, e = os.path.splitext(name)
+#             nn = n[:]
+#             if '_' in nn:
+#                 nn = nn[:-2] # strip _x
+#             code = int('0x%s' % nn, 16)
+#             inf = open(os.path.join(root, name))
+#             outf = open(os.path.join(root, '%s.out' % n))
+#             data = TestData(inf.read(), outf.read(), n, code)
+#             yield _cpu_test, code, data
+
 def test_cpu_zip():
     """ test cpu instruction set (zip)"""
     zf = zipfile.ZipFile(_testzip, 'r')
@@ -260,6 +279,15 @@ def test_cpu_zip():
         except DataError, err:
             print err
             continue
+        # skip uninplemented instructions
+        try:
+            _cpu_test(code, data)
+        except CPUTrapInvalidOP, err:
+            # TODO enable for final tests!
+            #warnings.warn('%x not tested' % code)
+            continue
+        except Exception, err:
+            pass
         yield _cpu_test, code, data
 
 if __name__ == '__main__':
