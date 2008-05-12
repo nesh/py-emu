@@ -23,18 +23,18 @@ class CPUException(Exception):
 class CPUTrapInvalidOP(CPUException):
     pass
 
+class _CpuInvalidCommand(object):
+    def __call__(self, *args, **kwargs):
+        raise CPUTrapInvalidOP('%r, %r' % (args, kwargs))
+
+# used to mark invalid operations
+InvalidOp = _CpuInvalidCommand()
+
 class CPU(Device):
     def __init__(self, mem, io=None):
         self.mem = mem
         self.io = io
         super(CPU, self).__init__()
-    
-    def _invalid(self, msg=None):
-        """ for invalid opcodes """
-        if msg:
-            raise CPUTrapInvalidOP(msg)
-        else:
-            raise CPUTrapInvalidOP()
     
     def reset(self):
         self.icount = 0

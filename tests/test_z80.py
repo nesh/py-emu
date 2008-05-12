@@ -284,9 +284,9 @@ def test_cpu_zip():
             _cpu_test(code, data)
         except CPUTrapInvalidOP, err:
             # TODO enable for final tests!
-            #warnings.warn('%x not tested' % code)
+            # warnings.warn('%x not tested, invalid opcode' % code)
             continue
-        except Exception, err:
+        except AssertionError, err:
             pass
         yield _cpu_test, code, data
 

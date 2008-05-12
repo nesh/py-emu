@@ -21,9 +21,10 @@ Z80 CPU core
 
 # stdlib
 import random
+import warnings
 
 # app
-from hardware.cpu import CPU, CPUTrapInvalidOP
+from hardware.cpu import CPU, CPUTrapInvalidOP, InvalidOp
 from tools import *
 from dasm import *
 from opcodes import *
@@ -66,46 +67,62 @@ class Z80(CPU, Z80MixinBASE, Z80MixinCB, Z80MixinDD, Z80MixinDDCB, Z80MixinED, Z
             ret.append(' '.join(line))
         return '\n'.join(ret)
     
+    # ===================
+    # = execute opcodes =
+    # ===================
+    def _run_fd(self):
+        self.icount -= 4; self.itotal += 4
+        op = self.read_op()
+        self.r_ += 1
+        ofn = self._fd[op]
+        if ofn is InvalidOp:
+            self._base[op]()
+        else:
+            ofn()
+    
+    def _run_dd(self):
+        self.icount -= 4; self.itotal += 4
+        op = self.read_op()
+        self.r_ += 1
+        ofn = self._dd[op]
+        if ofn is InvalidOp:
+            self._base[op]()
+        else:
+            ofn()
+    
+    def _run_ddcb(self):
+        offset = as_signed(self.read_op_arg())
+        op = self.read_op()
+        self.r_ += 1
+        self._fdcb[op](offset)
+    
+    def _run_fdcb(self):
+        offset = as_signed(self.read_op_arg())
+        op = self.read_op()
+        self.r_ += 1
+        self._fdcb[op](offset)
+    
+    def _run_cb(self):
+        op = self.read_op()
+        self.r_ += 1
+        self._cb[op]()
+    
+    def _run_ed(self):
+        self.icount -= 4; self.itotal += 4
+        op = self.read_op()
+        self.r_ += 1
+        self._ed[op]()
+    
     def run(self, cycles=0):
         # run until we spend all cycles
         # TODO IRQs
         self.icount += cycles
         while self.icount > 0:
             op = self.read_op()
-            self.r = (self.r + 1) & 0x7F # R is 7bit
+            self.r_ += 1
             self.no_irq_once = False
-            ofn = None
             
-            if not self.prefix:
-                ofn = self._base[op]
-            else:
-                if (self.prefix | 0x20 == 0xFD) and ((op | 0x20) == 0xFD) or (op == 0xED):
-                    self.prefix = op
-                    self.no_irq_once = True # interrupts are not accepted immediately after prefix
-                else:
-                    if self.prefix in (0xDD, 0xFD):
-                        if op == 0xCB:
-                            d = as_signed(self.read_op_arg()) # displacement
-                            op = self.read_op()
-                            ofn = self._ddcb[op] if self.prefix == 0xDD else self._fdcb[op]
-                            ofn(d) # special case
-                            continue
-                        else:
-                            ofn = self._dd[op] if self.prefix == 0xDD else self._fd[op]
-                            if ofn is None:
-                                ofn = self._base[op] # 'mirrored' instructions
-                    elif self.prefix == 0xED:
-                        ofn = self._ed[op]
-                        if ofn is None:
-                            ofn = self._base[op] # 'mirrored' instructions
-                    elif self.prefix == 0xCB:
-                        ofn = self._cb[op]
-                    else:
-                        raise CPUTrapInvalidOP('%02X%02X' % (self.prefix, op))
-            if ofn is not None:
-                ofn()
-            else:
-                raise CPUTrapInvalidOP('%02X' % op)
+            self._base[op]()
         # TODO IRQ
     
     # =================
@@ -176,14 +193,14 @@ class Z80(CPU, Z80MixinBASE, Z80MixinCB, Z80MixinDD, Z80MixinDDCB, Z80MixinED, Z
         self.prefix = 0
         self.no_irq_once = False
     
-    def _cb(self):
-        # cb prefix
-        op = self.read_op()
-        self.r = (self.r + 1) & 0x7F # R is 7bit
-        self._base[op]()
-    
     def register_opcodes(self):
         self._init_base()
+        self._init_cb()
+        self._init_ed()
+        self._init_dd()
+        self._init_fd()
+        self._init_ddcb()
+        self._init_fdcb()
     
     def get_state(self):
         """get cpu state
@@ -207,6 +224,12 @@ class Z80(CPU, Z80MixinBASE, Z80MixinCB, Z80MixinDD, Z80MixinDDCB, Z80MixinED, Z
     # = registers =
     # =============
     
+    def _get_r(self):
+        return (self.r_ & 0x7F) | (self.r7 & 0x80)
+    def _set_r(self, val):
+        self.r_ = self.r7 = val & 0xFF
+    r = property(fset=_set_r, fget=_get_r)
+
     def _get_af(self):
         return (self.a << 8) | self.f
     def _set_af(self, val):

@@ -45,6 +45,22 @@ class LD(_OpBase):
         opcode, dst, src = self.opcode, self.dst, self.src
         if dst == src:
             ret = 'pass'
+        elif (dst == 'a') and (src == 'r'):
+            # A=(R&0x7f) | (R7&0x80);\
+            # F = ( F & FLAG_C ) | sz53_table[A] | ( IFF2 ? FLAG_V : 0 );\
+            return [
+                'self.a = self.r',
+                'self.f = (self.f & CF) | SZXY_TABLE[self.a] | (VF if self.iff2 else 0)'
+            ]
+        elif (dst == 'a') and (src == 'i'):
+            # A=I;\
+            # F = ( F & FLAG_C ) | sz53_table[A] | ( IFF2 ? FLAG_V : 0 );\
+            return [
+                'self.a = self.i',
+                'self.f = (self.f & CF) | SZXY_TABLE[self.a] | (VF if self.iff2 else 0)'
+            ]
+        elif (src == 'a') and (dst == 'r'):
+            ret = 'self.r = self.r7 = self.a'
         elif ((dst in _REG8) and (src in _REG8)) or ((dst in _REG16) and (src in _REG16)):
             ret = 'self.%(dst)s = self.%(src)s' % locals()
         elif (dst in _REG16) and (src == '@'):
@@ -456,9 +472,9 @@ class ADC(_OpBase):
                 'v1 = self.hl',
                 'v2 = self.%(src)s' % locals(),
                 'tmp = v1 + v2 + (1 if self.f & CF else 0)',
-                'lookup = ((v1 & 0x0800) >> 11) | ((v2 & 0x0800) >> 10) | ((tmp & 0x0800) >> 9)',
+                'lookup = ((v1 & 0x8800) >> 11) | ((v2 & 0x8800) >> 10) | ((tmp & 0x8800) >> 9)',
                 'self.hl = tmp & 0xFFFF',
-                'self.f = (CF if tmp & 0x10000 else 0) (self.h & XYSF) | OV_ADD_TABLE[lookup >> 4] | HC_ADD_TABLE[lookup & 0x07] | (0 if v1 else ZF)',
+                'self.f = (CF if tmp & 0x10000 else 0) | OV_ADD_TABLE[lookup >> 4] | (self.h & XYSF) | HC_ADD_TABLE[lookup & 0x07] | (0 if v1 else ZF)',
             ]
         else:
             raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
@@ -549,9 +565,9 @@ class SBC(_OpBase):
                 'v1 = self.hl',
                 'v2 = self.%(src)s' % locals(),
                 'tmp = v1 - v2 - (1 if self.f & CF else 0)',
-                'lookup = ((v1 & 0x0800) >> 11) | ((v2 & 0x0800) >> 10) | ((tmp & 0x0800) >> 9)',
+                'lookup = ((v1 & 0x8800) >> 11) | ((v2 & 0x8800) >> 10) | ((tmp & 0x8800) >> 9)',
                 'self.hl = tmp & 0xFFFF',
-                'self.f = (CF if tmp & 0x10000 else 0) (self.h & XYSF) | OV_SUB_TABLE[lookup >> 4] | HC_SUB_TABLE[lookup & 0x07] | (0 if v1 else ZF)',
+                'self.f = (CF if tmp & 0x10000 else 0) | NF | (self.h & XYSF) | OV_SUB_TABLE[lookup >> 4] | HC_SUB_TABLE[lookup & 0x07] | (0 if v1 else ZF)',
             ]
         else:
             raise ValueError('unhandled pair %(opcode)s: %(dst)s, %(src)s' % locals())
