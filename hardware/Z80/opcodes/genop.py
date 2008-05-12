@@ -43,12 +43,12 @@ def convert_to_table(out, type_, table):
         else:
             fnname = 'op_%s_%02X' % (type_.upper(), code)
         ret.append('%s%s[0x%02X] = self.%s # %s' % (IDENT*2, tabname, code, fnname, op))
-
-    # # # prefixes
+    
+    # prefixes
     if type_ == 'base':
         for code in (0xCB, 0xDD, 0xFD, 0xED,):
             ret.append('%s%s[0x%02X] = self._run_%02x # prefix' % (IDENT*2, tabname, code, code))
-
+    
     ret.append('%s%s = tuple(%s)' % (IDENT*2, tabname, tabname))
     if len(ret):
         print >>out, '\n'.join(ret)
