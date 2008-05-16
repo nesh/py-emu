@@ -48,8 +48,8 @@ def convert_to_table(out, type_, table):
     if type_ == 'base':
         for code in (0xCB, 0xDD, 0xFD, 0xED,):
             ret.append('%s%s[0x%02X] = self._run_%02x # prefix' % (IDENT*2, tabname, code, code))
-    
-    ret.append('%s%s = tuple(%s)' % (IDENT*2, tabname, tabname))
+    # TODO other prefixes!
+    ret.append('%s%s = tuple(%s) # make read-only' % (IDENT*2, tabname, tabname))
     if len(ret):
         print >>out, '\n'.join(ret)
 
@@ -72,7 +72,10 @@ def convert_to_py(out, type_, code, op, tstates):
         tstates = [t - 4 for t in tstates]
     
     src = []
-    src.append('%sdef %s(self):' % (IDENT, fnname))
+    if type_ in ('ddcb', 'fdcb'):
+        src.append('%sdef %s(self, offset):' % (IDENT, fnname))
+    else:
+        src.append('%sdef %s(self):' % (IDENT, fnname))
     src.append('%s""" %s """' % (IDENT*2, op))
     src.append('%s%s' % (IDENT*2, (ADD_T % (tstates[0], tstates[0]))))
     src.append('%s# %s' % (IDENT*2, opcode))

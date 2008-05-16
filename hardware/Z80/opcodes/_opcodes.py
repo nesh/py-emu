@@ -574,6 +574,73 @@ class SBC(_OpBase):
         return ret
 CMDS['SBC'] = SBC()
 
+
+class AND(_OpBase):
+    def parse(self):
+        opcode, src = self.opcode, self.dst
+        # A &= (value);\
+        # F = FLAG_H | sz53p_table[A];\
+        if src == '#':
+            src = 'self.read_op_arg()'
+        elif src in _REG16IND: # r, (rr)
+            src = src[1:-1]
+            src = 'self.read(self.%(src)s)' % locals()
+        elif (src in _REGIDX): # r, (idx+d)
+            reg = 'ix' if 'ix' in src else 'iy'
+            adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            src = 'self.read(%(adr)s)' % locals()
+        else:
+            src = 'self.%(src)s' % locals()
+        return [
+            'self.a &= %(src)s' % locals(),
+            'self.f = HF | SZXYP_TABLE[self.a]'
+        ]
+CMDS['AND'] = AND()
+
+class XOR(_OpBase):
+    def parse(self):
+        opcode, src = self.opcode, self.dst
+        # A ^= (value);\
+        # F = sz53p_table[A];\
+        if src == '#':
+            src = 'self.read_op_arg()'
+        elif src in _REG16IND: # r, (rr)
+            src = src[1:-1]
+            src = 'self.read(self.%(src)s)' % locals()
+        elif (src in _REGIDX): # r, (idx+d)
+            reg = 'ix' if 'ix' in src else 'iy'
+            adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            src = 'self.read(%(adr)s)' % locals()
+        else:
+            src = 'self.%(src)s' % locals()
+        return [
+            'self.a ^= %(src)s' % locals(),
+            'self.f = SZXYP_TABLE[self.a]'
+        ]
+CMDS['XOR'] = XOR()
+
+
+class OR(_OpBase):
+    def parse(self):
+        opcode, src = self.opcode, self.dst
+        # A ^= (value);\
+        # F = sz53p_table[A];\
+        if src == '#':
+            src = 'self.read_op_arg()'
+        elif src in _REG16IND: # r, (rr)
+            src = src[1:-1]
+            src = 'self.read(self.%(src)s)' % locals()
+        elif (src in _REGIDX): # r, (idx+d)
+            reg = 'ix' if 'ix' in src else 'iy'
+            adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            src = 'self.read(%(adr)s)' % locals()
+        else:
+            src = 'self.%(src)s' % locals()
+        return [
+            'self.a |= %(src)s' % locals(),
+            'self.f = SZXYP_TABLE[self.a]'
+        ]
+CMDS['OR'] = OR()
 # ===============
 # = for testing =
 # ===============

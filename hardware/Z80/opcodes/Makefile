@@ -12,7 +12,7 @@ code: ${GEN}
 	@./genop.py
 
 test:
-	@nosetests ../../../tests/test_z80.py
+	@nosetests ../../../tests/test_z80.py -v
 
 clean:
 	@echo "cleaning..."
