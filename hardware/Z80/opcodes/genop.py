@@ -56,8 +56,12 @@ def convert_to_table(out, type_, table):
 def convert_to_py(out, type_, code, op, tstates):
     bits = op.split()
     opcode = bits[0].upper()
+    
+    # prefixes are handled differently
+    if opcode in ('SHIFT', 'IGNORE', 'RESET',): return False
+    
     if opcode not in CMDS:
-        warnings.warn('uninplemented %s' % opcode)
+        warnings.warn('uninplemented %s (%X)' % (opcode, code))
         return False
     ret = CMDS[opcode](type_, code, op, tstates, [b.replace("'", '1') for b in bits])
     if not len(ret): return False # empty
