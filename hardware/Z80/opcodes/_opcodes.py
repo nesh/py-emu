@@ -641,6 +641,41 @@ class OR(_OpBase):
             'self.f = SZXYP_TABLE[self.a]'
         ]
 CMDS['OR'] = OR()
+
+
+class CP(_OpBase):
+    def parse(self):
+        opcode, src = self.opcode, self.dst
+        # Z80EX_WORD cptemp = A - value; \
+        # Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+        #           ( ( (value) & 0x88 ) >> 2 ) | \
+        #           ( (  cptemp & 0x88 ) >> 1 );  \
+        # F = ( cptemp & 0x100 ? FLAG_C : ( cptemp ? 0 : FLAG_Z ) ) | FLAG_N |\
+        #   halfcarry_sub_table[lookup & 0x07] |\
+        #       overflow_sub_table[lookup >> 4] |\
+        #       ( value & ( FLAG_3 | FLAG_5 ) ) |\
+        #       ( cptemp & FLAG_S );\
+        if src == '#':
+            src = 'self.read_op_arg()'
+        elif src in _REG16IND: # r, (rr)
+            src = src[1:-1]
+            src = 'self.read(self.%(src)s)' % locals()
+        elif (src in _REGIDX): # r, (idx+d)
+            reg = 'ix' if 'ix' in src else 'iy'
+            adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            src = 'self.read(%(adr)s)' % locals()
+        else:
+            src = 'self.%(src)s' % locals()
+        return [
+            'value = %(src)s' % locals(),
+            'cptemp = self.a - value',
+            'lookup = ((self.a & 0x88) >> 3) | ((value & 0x88) >> 2) | ((cptemp & 0x88) >> 1)',
+            'lookup &= 0xFF',
+            'self.f = (CF if cptemp & 0x100 else 0) | (ZF if not cptemp else 0)'
+            ' | NF | HC_SUB_TABLE[lookup & 0x07] | OV_SUB_TABLE[lookup >> 4]'
+            ' | (value & XYF) | (cptemp & SF)',
+        ]
+CMDS['CP'] = CP()
 # ===============
 # = for testing =
 # ===============
