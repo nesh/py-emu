@@ -105,6 +105,8 @@ def process_ofile(fname, name, dasm_fh):
     table = []
     
     for line in fh:
+        code, op, t  = None, None, None
+        bits = [] 
         try:
             line = line.strip()
             if not line or line.startswith('#'): continue

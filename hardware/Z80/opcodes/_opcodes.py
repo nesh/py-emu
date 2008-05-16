@@ -11,13 +11,15 @@ _REG8 = ('a', 'f', 'b', 'c', 'd', 'e', 'h', 'l', 'r', 'i', 'ixh', 'ixl', 'iyh', 
 _REG16 = ('af', 'bc', 'de', 'hl', 'ix', 'iy', 'pc', 'sp', 'af1')
 _REG16IND = ('(bc)', '(de)', '(hl)', '(sp)')
 _REGIDX = ('(ix+$)', '(iy+$)')
-_COND = ('c', 'z', )
-_NOTCOND = ('nc', 'nz', )
+_COND = ('c', 'z', 'm', 'pe',)
+_NOTCOND = ('nc', 'nz', 'p', 'po',)
 
 
 class _OpBase(object):
     def parse_bits(self, bits):
         self.opcode = bits[0]
+        self.dst = None
+        self.src = None
         if len(bits) > 1:
             args = bits[1].split(',')
             
@@ -676,6 +678,39 @@ class CP(_OpBase):
             ' | (value & XYF) | (cptemp & SF)',
         ]
 CMDS['CP'] = CP()
+
+
+class RET(_OpBase):
+    def parse(self):
+        opcode, flag = self.opcode, self.dst
+        if flag is not None and (flag in _COND):
+            if flag == 'm':
+                flag = 's'
+            elif flag == 'pe':
+                flag = 'p'
+            return [
+                'if self.f & %sF:' % flag.upper(),
+                '%(IDENT)sself.pc = self.read16(self.sp)' % globals(),
+                '%(IDENT)sself.sp = (self.sp + 2) & 0xFFFF' % globals(),
+                '%s%s' % (IDENT, (ADD_T % (6, 6))),
+            ]
+        elif flag is not None and (flag in _NOTCOND):
+            if flag == 'p':
+                flag = 'ns'
+            elif flag == 'po':
+                flag = 'np'
+            return [
+                'if not (self.f & %sF):' % flag[1].upper(),
+                '%(IDENT)sself.pc = self.read16(self.sp)' % globals(),
+                '%(IDENT)sself.sp = (self.sp + 2) & 0xFFFF' % globals(),
+                '%s%s' % (IDENT, (ADD_T % (6, 6))),
+            ]
+        else:
+            return [
+                'self.pc = self.read16(self.sp)',
+                'self.sp = (self.sp + 2) & 0xFFFF',
+            ]
+CMDS['RET'] = RET()
 # ===============
 # = for testing =
 # ===============
