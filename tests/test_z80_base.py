@@ -112,4 +112,12 @@ def test_iy():
 
 if __name__ == '__main__':
     import nose
+    try:
+        import psyco
+        #psyco.full()
+        psyco.log()
+        psyco.profile(0.05)
+        psyco.runonly()
+    except ImportError:
+        pass
     nose.main()

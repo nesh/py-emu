@@ -5,3 +5,4 @@
 # private data dir
 private
 * copy.py
+*.log-psyco
