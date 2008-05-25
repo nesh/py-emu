@@ -13,9 +13,8 @@
 #include "z80ex_common.h"
 
 typedef
-enum {regAF,regBC,regDE,regHL,regAF_,regBC_,regDE_,regHL_,regIX,regIY,regPC,regSP,regI,regR,regR7,regIM/*0,1 √â√å√â 2*/,regIFF1,regIFF2}
-Z80_REG_T_;
-#define Z80_REG_T unsigned char
+enum {regAF,regBC,regDE,regHL,regAF_,regBC_,regDE_,regHL_,regIX,regIY,regPC,regSP,regI,regR,regR7,regIM/*0,1 …Ã… 2*/,regIFF1,regIFF2}
+Z80_REG_T;
 
 #ifndef __Z80EX_SELF_INCLUDE
 

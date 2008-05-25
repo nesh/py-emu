@@ -7,11 +7,6 @@ from ctypes import cast, c_void_p, pointer
 
 from hardware.cpu import (
     CPU, CPUTrapInvalidOP,
-    _add_cycles,
-    cpu_inc_t,
-    cpu_reset,
-    cpu_irq,
-    cpu_nmi,
 )
 from hardware.memory import RAM
 from z80core import *

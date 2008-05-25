@@ -1,0 +1,49 @@
+// !$*UTF8*$!
+{
+	08FB7793FE84155DC02AAC07 /* Project object */ = {
+		activeArchitecture = i386;
+		activeBuildConfigurationName = Release;
+		activeTarget = 469436450DE9843D00ED4D0E /* Z80 */;
+		addToTargets = (
+			469436450DE9843D00ED4D0E /* Z80 */,
+		);
+		codeSenseManager = 469436410DE9843C00ED4D0E /* Code sense */;
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 233415272;
+			PBXWorkspaceStateSaveDate = 233415272;
+		};
+		sourceControlManager = 469436400DE9843C00ED4D0E /* Source Control */;
+		userBuildSettings = {
+		};
+	};
+	469436400DE9843C00ED4D0E /* Source Control */ = {
+		isa = PBXSourceControlManager;
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		scmConfiguration = {
+		};
+	};
+	469436410DE9843C00ED4D0E /* Code sense */ = {
+		isa = PBXCodeSenseManager;
+		indexTemplatePath = "";
+	};
+	469436450DE9843D00ED4D0E /* Z80 */ = {
+		activeExec = 0;
+	};
+	469436580DE9847F00ED4D0E /* z80ex.c */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {898, 6256}}";
+			sepNavSelRange = "{9437, 0}";
+			sepNavVisRange = "{8561, 892}";
+			sepNavWindowFrame = "{{15, 15}, {957, 758}}";
+		};
+	};
+	469436590DE9847F00ED4D0E /* z80ex.h */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {1072, 1904}}";
+			sepNavSelRange = "{2085, 0}";
+			sepNavVisRange = "{1601, 1389}";
+			sepNavWindowFrame = "{{15, 15}, {957, 758}}";
+		};
+	};
+}

@@ -1,0 +1,268 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 44;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4694365D0DE9847F00ED4D0E /* macros.h in Headers */ = {isa = PBXBuildFile; fileRef = 4694364D0DE9847F00ED4D0E /* macros.h */; };
+		469436660DE9847F00ED4D0E /* typedefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 469436570DE9847F00ED4D0E /* typedefs.h */; };
+		469436670DE9847F00ED4D0E /* z80ex.c in Sources */ = {isa = PBXBuildFile; fileRef = 469436580DE9847F00ED4D0E /* z80ex.c */; };
+		469436680DE9847F00ED4D0E /* z80ex.h in Headers */ = {isa = PBXBuildFile; fileRef = 469436590DE9847F00ED4D0E /* z80ex.h */; };
+		469436690DE9847F00ED4D0E /* z80ex_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 4694365A0DE9847F00ED4D0E /* z80ex_common.h */; };
+		4694366A0DE9847F00ED4D0E /* z80ex_dasm.c in Sources */ = {isa = PBXBuildFile; fileRef = 4694365B0DE9847F00ED4D0E /* z80ex_dasm.c */; };
+		469436720DE984DC00ED4D0E /* z80ex_dasm.h in Headers */ = {isa = PBXBuildFile; fileRef = 469436710DE984DC00ED4D0E /* z80ex_dasm.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		469436460DE9843D00ED4D0E /* libZ80.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libZ80.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		4694364C0DE9847F00ED4D0E /* daa_table.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = daa_table.c; sourceTree = "<group>"; };
+		4694364D0DE9847F00ED4D0E /* macros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = macros.h; sourceTree = "<group>"; };
+		4694364F0DE9847F00ED4D0E /* opcodes_base.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_base.c; sourceTree = "<group>"; };
+		469436500DE9847F00ED4D0E /* opcodes_cb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_cb.c; sourceTree = "<group>"; };
+		469436510DE9847F00ED4D0E /* opcodes_dasm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_dasm.c; sourceTree = "<group>"; };
+		469436520DE9847F00ED4D0E /* opcodes_dd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_dd.c; sourceTree = "<group>"; };
+		469436530DE9847F00ED4D0E /* opcodes_ddcb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_ddcb.c; sourceTree = "<group>"; };
+		469436540DE9847F00ED4D0E /* opcodes_ed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_ed.c; sourceTree = "<group>"; };
+		469436550DE9847F00ED4D0E /* opcodes_fd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_fd.c; sourceTree = "<group>"; };
+		469436560DE9847F00ED4D0E /* opcodes_fdcb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes_fdcb.c; sourceTree = "<group>"; };
+		469436570DE9847F00ED4D0E /* typedefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = typedefs.h; sourceTree = "<group>"; };
+		469436580DE9847F00ED4D0E /* z80ex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = z80ex.c; sourceTree = "<group>"; };
+		469436590DE9847F00ED4D0E /* z80ex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = z80ex.h; sourceTree = "<group>"; };
+		4694365A0DE9847F00ED4D0E /* z80ex_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = z80ex_common.h; sourceTree = "<group>"; };
+		4694365B0DE9847F00ED4D0E /* z80ex_dasm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = z80ex_dasm.c; sourceTree = "<group>"; };
+		469436710DE984DC00ED4D0E /* z80ex_dasm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = z80ex_dasm.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		469436440DE9843D00ED4D0E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* clibs */ = {
+			isa = PBXGroup;
+			children = (
+				4694364B0DE9847F00ED4D0E /* libZ80 */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = clibs;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				469436460DE9843D00ED4D0E /* libZ80.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4694364B0DE9847F00ED4D0E /* libZ80 */ = {
+			isa = PBXGroup;
+			children = (
+				469436710DE984DC00ED4D0E /* z80ex_dasm.h */,
+				4694364C0DE9847F00ED4D0E /* daa_table.c */,
+				4694364D0DE9847F00ED4D0E /* macros.h */,
+				4694364E0DE9847F00ED4D0E /* opcodes */,
+				469436570DE9847F00ED4D0E /* typedefs.h */,
+				469436580DE9847F00ED4D0E /* z80ex.c */,
+				469436590DE9847F00ED4D0E /* z80ex.h */,
+				4694365A0DE9847F00ED4D0E /* z80ex_common.h */,
+				4694365B0DE9847F00ED4D0E /* z80ex_dasm.c */,
+			);
+			path = libZ80;
+			sourceTree = "<group>";
+		};
+		4694364E0DE9847F00ED4D0E /* opcodes */ = {
+			isa = PBXGroup;
+			children = (
+				4694364F0DE9847F00ED4D0E /* opcodes_base.c */,
+				469436500DE9847F00ED4D0E /* opcodes_cb.c */,
+				469436510DE9847F00ED4D0E /* opcodes_dasm.c */,
+				469436520DE9847F00ED4D0E /* opcodes_dd.c */,
+				469436530DE9847F00ED4D0E /* opcodes_ddcb.c */,
+				469436540DE9847F00ED4D0E /* opcodes_ed.c */,
+				469436550DE9847F00ED4D0E /* opcodes_fd.c */,
+				469436560DE9847F00ED4D0E /* opcodes_fdcb.c */,
+			);
+			path = opcodes;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		469436420DE9843D00ED4D0E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4694365D0DE9847F00ED4D0E /* macros.h in Headers */,
+				469436660DE9847F00ED4D0E /* typedefs.h in Headers */,
+				469436680DE9847F00ED4D0E /* z80ex.h in Headers */,
+				469436690DE9847F00ED4D0E /* z80ex_common.h in Headers */,
+				469436720DE984DC00ED4D0E /* z80ex_dasm.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		469436450DE9843D00ED4D0E /* Z80 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 469436490DE9844900ED4D0E /* Build configuration list for PBXNativeTarget "Z80" */;
+			buildPhases = (
+				469436420DE9843D00ED4D0E /* Headers */,
+				469436430DE9843D00ED4D0E /* Sources */,
+				469436440DE9843D00ED4D0E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Z80;
+			productName = libZ80;
+			productReference = 469436460DE9843D00ED4D0E /* libZ80.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "clibs" */;
+			compatibilityVersion = "Xcode 3.0";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* clibs */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				469436450DE9843D00ED4D0E /* Z80 */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		469436430DE9843D00ED4D0E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				469436670DE9847F00ED4D0E /* z80ex.c in Sources */,
+				4694366A0DE9847F00ED4D0E /* z80ex_dasm.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB914F08733D8E0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = "";
+				DEAD_CODE_STRIPPING = NO;
+				DYLIB_COMPATIBILITY_VERSION = "";
+				DYLIB_CURRENT_VERSION = "";
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.4u.sdk";
+				VERSIONING_SYSTEM = "";
+				VERSION_INFO_BUILDER = "";
+				VERSION_INFO_FILE = "";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		1DEB915008733D8E0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				CURRENT_PROJECT_VERSION = "";
+				DEAD_CODE_STRIPPING = NO;
+				DYLIB_COMPATIBILITY_VERSION = "";
+				DYLIB_CURRENT_VERSION = "";
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.4u.sdk";
+				VERSIONING_SYSTEM = "";
+				VERSION_INFO_BUILDER = "";
+				VERSION_INFO_FILE = "";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		469436470DE9843E00ED4D0E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/lib;
+				PREBINDING = NO;
+				PRODUCT_NAME = Z80;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		469436480DE9843E00ED4D0E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PREBINDING = NO;
+				PRODUCT_NAME = Z80;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "clibs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB914F08733D8E0010E9CD /* Debug */,
+				1DEB915008733D8E0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		469436490DE9844900ED4D0E /* Build configuration list for PBXNativeTarget "Z80" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				469436470DE9843E00ED4D0E /* Debug */,
+				469436480DE9843E00ED4D0E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

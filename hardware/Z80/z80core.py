@@ -2,10 +2,9 @@ import sys
 import os
 from ctypes import *
 
-LIB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'z80ex', 'lib'))
+LIB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'clibs', 'build', 'Release'))
 
-libz80 = CDLL(os.path.join(LIB_DIR, "libz80ex.so"))
-libz80_dasm = CDLL(os.path.join(LIB_DIR, "libz80ex_dasm.so"))
+libz80 = CDLL(os.path.join(LIB_DIR, "libz80.dylib"))
 
 byte = c_uint8
 sbyte = c_int8

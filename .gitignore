@@ -1,8 +1,9 @@
 .DS_Store
 *.pyc
 *.pyo
-*.log
+*.log*
 *.so
 *.o
 # private data dir
 private
+build
