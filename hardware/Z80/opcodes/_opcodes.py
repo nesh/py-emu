@@ -27,6 +27,14 @@ class _OpBase(object):
             if len(args) > 1:
                 self.src = args[1].lower()
     
+    def add_t(self):
+        if len(self.tstates) == 1:
+            return ''
+        t0, t1 = self.tstates
+        t1 = t1 -  t0
+        if not t1: return ''
+        return ADD_T % (t1, t1)
+
     def __call__(self, type_, code, op, tstates, bits):
         self.parse_bits(bits)
         self.name = ' '.join(bits)
@@ -312,7 +320,7 @@ class DJNZ(_OpBase):
             'self.b = (self.b - 1) & 0xFF',
             'if self.b:',
             '%(IDENT)sself.pc = (self.pc + offset) & 0xFFFF' % globals(),
-            '%s%s' % (IDENT, (ADD_T % (5, 5))),
+            '%s%s' % (IDENT, self.add_t()),
         ]
 CMDS['DJNZ'] = DJNZ()
 
@@ -342,13 +350,13 @@ class JR(_OpBase):
             ret += [
                 'if self.f & %sF:' % flag.upper(),
                 '%(IDENT)sself.pc = (self.pc + offset) & 0xFFFF' % globals(),
-                '%s%s' % (IDENT, (ADD_T % (5, 5))),
+                '%s%s' % (IDENT, self.add_t()),
             ]
         elif flag in _NOTCOND:
             ret += [
                 'if not (self.f & %sF):' % flag[1].upper(),
                 '%(IDENT)sself.pc = (self.pc + offset) & 0xFFFF' % globals(),
-                '%s%s' % (IDENT, (ADD_T % (5, 5))),
+                '%s%s' % (IDENT, self.add_t()),
             ]
         else:
             raise ValueError('unhandled flag %(opcode)s: %(flag)s' % locals())
@@ -692,7 +700,7 @@ class RET(_OpBase):
                 'if self.f & %sF:' % flag.upper(),
                 '%(IDENT)sself.pc = self.read16(self.sp)' % globals(),
                 '%(IDENT)sself.sp = (self.sp + 2) & 0xFFFF' % globals(),
-                '%s%s' % (IDENT, (ADD_T % (6, 6))),
+                '%s%s' % (IDENT, self.add_t()),
             ]
         elif flag is not None and (flag in _NOTCOND):
             if flag == 'p':
@@ -703,7 +711,7 @@ class RET(_OpBase):
                 'if not (self.f & %sF):' % flag[1].upper(),
                 '%(IDENT)sself.pc = self.read16(self.sp)' % globals(),
                 '%(IDENT)sself.sp = (self.sp + 2) & 0xFFFF' % globals(),
-                '%s%s' % (IDENT, (ADD_T % (6, 6))),
+                '%s%s' % (IDENT, self.add_t()),
             ]
         else:
             return [
@@ -711,6 +719,59 @@ class RET(_OpBase):
                 'self.sp = (self.sp + 2) & 0xFFFF',
             ]
 CMDS['RET'] = RET()
+
+
+class POP(_OpBase):
+    def parse(self):
+        opcode, rp = self.opcode, self.dst
+        return [
+            'self.%(rp)s = self.read16(self.sp)' % locals(),
+            'self.sp = (self.sp + 2) & 0xFFFF',
+        ]
+CMDS['POP'] = POP()
+
+
+class JP(_OpBase):
+    def parse(self):
+        opcode, flag, adr = self.opcode, self.dst, self.src
+        ret = []
+        ident = IDENT
+
+        if adr == '@':
+            adr = 'self.read_op_arg16()'
+
+        if flag == '@':
+            ret += ['self.pc = self.read_op_arg16()' % locals()]
+        elif flag in ('hl', 'ix', 'iy'):
+            ret += ['self.pc = self.%(flag)s' % locals()]
+        elif flag in _COND:
+            if flag == 'm':
+                flag = 's'
+            elif flag == 'pe':
+                flag = 'p'
+            ret += [
+                'if self.f & %sF:' % flag.upper(),
+                '%(ident)sself.pc = %(adr)s' % locals(),
+                '%s%s' % (IDENT, self.add_t()),
+                'else:',
+                '%(ident)s%(adr)s # dummy read' % locals(),
+            ]
+        elif flag in _NOTCOND:
+            if flag == 'p':
+                flag = 'ns'
+            elif flag == 'po':
+                flag = 'np'
+            ret += [
+                'if not (self.f & %sF):' % flag[1].upper(),
+                '%(ident)sself.pc = %(adr)s' % locals(),
+                '%s%s' % (IDENT, self.add_t()),
+                'else:',
+                '%(ident)s%(adr)s # dummy read' % locals(),
+            ]
+        else:
+            raise ValueError('unhandled flag %(opcode)s: %(flag)s' % locals())
+        return ret
+CMDS['JP'] = JP()
 # ===============
 # = for testing =
 # ===============
