@@ -19,7 +19,7 @@ try:
     from psyco.classes import __metaclass__
 except ImportError:
     pass
-from pydispatch.dispatcher import send, connect
+# from pydispatch.dispatcher import send, connect
 from device import Device
 
 # IO events
@@ -39,7 +39,9 @@ class IO(Device):
 
     def read(self, adr):
         # it will return value from the *last* event handler
-        return send(IORead, self, adr & self._adr_mask)[-1][1] & self._data_mask
+        # return send(IORead, self, adr & self._adr_mask)[-1][1] & self._data_mask
+        pass
 
     def write(self, adr, value):
-        send(IOWrite, self, adr & self._adr_mask, value & self._data_mask)
+        # send(IOWrite, self, adr & self._adr_mask, value & self._data_mask)
+        pass

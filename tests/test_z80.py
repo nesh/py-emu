@@ -39,7 +39,8 @@ _testzip = os.path.join(os.path.dirname(__file__), 'z80_test_data.zip')
 _testdir = os.path.join(os.path.dirname(__file__), 'z80_test_data')
 
 def tohex(a):
-    return int('0x%s' % a, 16)
+    if not a: return 0
+    return int(a, 16)
     
 
 class DataError(Exception):
@@ -280,14 +281,14 @@ def test_cpu_zip():
             print err
             continue
         # skip uninplemented instructions
-        try:
-            _cpu_test(code, data)
-        except CPUTrapInvalidOP, err:
-            # TODO enable for final tests!
-            # warnings.warn('%x not tested, invalid opcode' % code)
-            continue
-        except AssertionError, err:
-            pass
+        # try:
+        _cpu_test(code, data)
+        # except CPUTrapInvalidOP, err:
+        #     # TODO enable for final tests!
+        #     # warnings.warn('%x not tested, invalid opcode' % code)
+        #     continue
+        # except AssertionError, err:
+        #     pass
         yield _cpu_test, code, data
 
 if __name__ == '__main__':

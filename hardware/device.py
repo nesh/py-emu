@@ -24,7 +24,7 @@ from settings import logging
 
 class Device(object):
     def __init__(self):
-        super(Device, self).__init__(self)
+        super(Device, self).__init__()
         self.log = logging.getLogger(self.__class__.__name__)
     
     def reset(self):
