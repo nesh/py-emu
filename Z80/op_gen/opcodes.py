@@ -13,7 +13,7 @@ REGIDX = ('(ix+$)', '(iy+$)')
 COND = ('c', 'z', 'm', 'pe',)
 NOTCOND = ('nc', 'nz', 'p', 'po',)
 ICOUNT = r"""%s -= %%d""" % state('icount') # TODO: what's faster a['foo'] or a.foo?
-HEAD = r'''def %s(state):'''
+HEAD = r'''def %s(z80):'''
 
 # globals
 GEN_DICT = {}

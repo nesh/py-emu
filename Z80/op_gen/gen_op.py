@@ -175,12 +175,12 @@ JP_FDCB = [None] * 0x100
 
 def main():
     parse('opcodes_base.dat')
-    # parse('opcodes_cb.dat', 0xCB)
+    parse('opcodes_cb.dat', 0xCB)
     parse('opcodes_ed.dat', 0xED)
-    # parse('opcodes_ddfd.dat', 0xDD)
-    # parse('opcodes_ddfd.dat', 0xFD)
-    # parse('opcodes_ddfdcb.dat', 0xDDCB)
-    # parse('opcodes_ddfdcb.dat', 0xFDCB)
+    parse('opcodes_ddfd.dat', 0xDD)
+    parse('opcodes_ddfd.dat', 0xFD)
+    parse('opcodes_ddfdcb.dat', 0xDDCB)
+    parse('opcodes_ddfdcb.dat', 0xFDCB)
     gen()
 
 
