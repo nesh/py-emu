@@ -41,9 +41,9 @@ def ld(code, op, table='base'):
         r = read_reg8(src)
         do += write_reg8(dst, r)
         f = read_flags()
-        iff2 = state['iff2']
+        iff2 = state('iff2')
         do += write_flags('(%(f)s & CF) | SZXY_TABLE[%(r)s] | (VF if %(iff2)s else 0)' % locals())
-    elif (dst in REG8) and (src in REG8):
+    elif ((dst in REG8) or (dst in ('r', 'i'))) and (src in REG8):
         # ld r,r1
         do += write_reg8(dst, read_reg8(src), False)
     elif (dst in REG16) and (src in REG16):

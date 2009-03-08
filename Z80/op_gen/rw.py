@@ -4,7 +4,7 @@ def state(what):
 def state_ind(what):
     return state(what[1:-1])
 
-STATE_REG8 = ('a', 'f', 'b', 'c', 'd', 'e', 'r')
+STATE_REG8 = ('a', 'f', 'b', 'c', 'd', 'e', 'r', 'i')
 
 # 16b regs stored as 2 * 8b
 STATE_REG8_16 = ('af', 'bc', 'de')
@@ -36,12 +36,15 @@ def read_reg8(what):
     else: # lo
         return '(%(r16r)s & 0xFF)' % locals()
 
-def write_flags(what):
-    f = state['f']
-    return ['%(f) = (%(what)s & 0xFF)' % locals]
+def write_flags(what, force=True):
+    f = state('f')
+    if force:
+        return ['%(f)s = (%(what)s) & 0xFF' % locals()]
+    else:
+        return ['%(f)s = %(what)s' % locals()]
 
 def read_flags():
-    return state['f']
+    return state('f')
 
 def write_reg8(where, what, force=True):
     assert where in STATE_REG8 or where in STATE_REG16_8, '%s' % where
