@@ -6,3 +6,5 @@
 private
 * copy.py
 *.log-psyco
+
+env/
