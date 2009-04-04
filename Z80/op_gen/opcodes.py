@@ -15,11 +15,286 @@ NOTCOND = ('nc', 'nz', 'p', 'po',)
 # globals
 GEN_DICT = {}
 
+# #define AND(value)\
+# {\
+#   A &= (value);\
+#   F = FLAG_H | sz53p_table[A];\
+# }
+
+def and_(code, op, table=None):
+    """ AND """
+    src = op['mn'][1].lower()
+    do = []
+    a = read_reg8('a')
+    
+    if src in REG8:
+        # and r
+        r = read_reg8(src)
+    elif src in REG16IND:
+        # and (rr)
+        r = read(read_reg16(src[1:-1]))
+    elif src in REGIDX:
+        # and (ix+o)
+        do.append(mem_shortcut())
+        todo, r = read_idx(src, mem='mem')
+        do += todo
+    elif src == '#':
+        # and n
+        do += read_op()
+        r = 'tmp8'
+    else:
+        raise SyntaxError('AND invalid source %s' % src)
+    do += write_reg8('a', '%(a)s & %(r)s' % locals(), force=False)
+    
+    do += write_flags('HF | SZ53P_TABLE[%(a)s]' % locals())
+        
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+GEN_DICT['AND'] = and_
+
+# #define ADC(a, value)\
+# {\
+#   Z80EX_WORD adctemp = A + (value) + ( F & FLAG_C ); \
+#   Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+#               ( ( (value) & 0x88 ) >> 2 ) | \
+#               ( ( adctemp & 0x88 ) >> 1 );  \
+#   A=adctemp;\
+#   F = ( adctemp & 0x100 ? FLAG_C : 0 ) |\
+#       halfcarry_add_table[lookup & 0x07] | overflow_add_table[lookup >> 4] |\
+#       sz53_table[A];\
+# }
+
+def adc(code, op, table=None):
+    """ ADC A"""
+    dst, src = [x.lower() for x in op['mn'][1]]
+    if dst == 'hl':
+        return adc16(code, op, table=None)
+    do = []
+    a = read_reg8(dst)
+    f = read_reg8('f')
+    
+    if src in REG8:
+        # adc a,r
+        r = read_reg8(src)
+    elif src in REG16IND:
+        # adc a,(rr)
+        # do.append(mem_shortcut())
+        do.append('tmp8 = %s' % read(read_reg16(src[1:-1])))
+        r = 'tmp8'
+    elif src in REGIDX:
+        # adc a,(ix+o)
+        do.append(mem_shortcut())
+        todo, r = read_idx(src, mem='mem')
+        do += todo
+        do.append('tmp8 = %(r)s' % locals())
+        r = 'tmp8'
+    elif src == '#':
+        # adc a,n
+        do += read_op()
+        r = 'tmp8'
+    else:
+        raise SyntaxError('ADC invalid pair %s,%s' % (dst, src))    
+    do.append('tmp16 = %(a)s + %(r)s + (%(f)s & CF)' % locals())
+    do.append('tmp8 = ((%(a)s & 0x88) >> 3) | ((%(r)s & 0x88) >> 2) | ((tmp16 & 0x88) >> 1)' % locals())
+    do += write_reg8(dst, 'tmp16')
+    
+    do += write_flags('(CF if tmp16 & 0x100 else 0) '
+                      '| HALFCARRY_ADD_TABLE[tmp8 & 0x07] '
+                      '| OVERFLOW_ADD_TABLE[tmp8 >> 4] '
+                      '| SZ53_TABLE[%(a)s]' % locals())
+        
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+GEN_DICT['ADC'] = adc
+
+# #define ADC16(hl, value)\
+# {\
+#   Z80EX_DWORD add16temp= HL + (value) + ( F & FLAG_C ); \
+#   Z80EX_BYTE lookup = ( (        HL & 0x8800 ) >> 11 ) | \
+#               ( (   (value) & 0x8800 ) >> 10 ) | \
+#               ( ( add16temp & 0x8800 ) >>  9 );  \
+#   MEMPTR=hl+1;\
+#   HL = add16temp;\
+#   F = ( add16temp & 0x10000 ? FLAG_C : 0 )|\
+#       overflow_add_table[lookup >> 4] |\
+#       ( H & ( FLAG_3 | FLAG_5 | FLAG_S ) ) |\
+#       halfcarry_add_table[lookup&0x07]|\
+#       ( HL ? 0 : FLAG_Z );\
+# }
+
+def adc16(code, op, table=None):
+    """ ADC HL"""
+    dst, src = [x.lower() for x in op['mn'][1]]
+    do = []
+    hl = read_reg16(dst)
+    h = read_reg8('h')
+    l = read_reg8('l')
+    f = read_reg8('f')
+    
+    if src in REG16:
+        # adc hl,rr
+        r = read_reg16(src)
+    else:
+        raise SyntaxError('ADC16 invalid pair %s,%s' % (dst, src))    
+    do.append('tmp16 = %(hl)s + %(r)s + (%(f)s & CF)' % locals())
+    do.append('tmp8 = ((%(hl)s & 0x8800) >> 11) | ((%(r)s & 0x8800) >> 10) | ((tmp16 & 0x8800) >> 9)' % locals())
+    do += write_reg16(dst, 'tmp16')
+    
+    do += write_flags('(CF if tmp16 & 0x10000 else 0) '
+                      '| OVERFLOW_ADD_TABLE[tmp8 >> 4] '
+                      '| (%(h)s & XYSF) '
+                      '| HALFCARRY_ADD_TABLE[tmp8 & 0x07] '
+                      '| 0 if %(hl)s else ZF' % locals())
+        
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+
+
+# #define ADD(a, value)\
+# {\
+#   Z80EX_WORD addtemp = A + (value); \
+#   Z80EX_BYTE lookup = ( (       A & 0x88 ) >> 3 ) | \
+#               ( ( (value) & 0x88 ) >> 2 ) | \
+#               ( ( addtemp & 0x88 ) >> 1 );  \
+#   A=addtemp;\
+#   F = ( addtemp & 0x100 ? FLAG_C : 0 ) |\
+#       halfcarry_add_table[lookup & 0x07] | overflow_add_table[lookup >> 4] |\
+#       sz53_table[A];\
+# }
+
+def add(code, op, table=None):
+    """ ADD"""
+    dst, src = [x.lower() for x in op['mn'][1]]
+    if dst in REG16:
+        return add16(code, op, table=None)
+    do = []
+    a = read_reg8(dst)
+    f = read_reg8('f')
+    
+    if src in REG8:
+        # add a,r
+        r = read_reg8(src)
+    elif src in REG16IND:
+        # add a,(rr)
+        # do.append(mem_shortcut())
+        do.append('tmp8 = %s' % read(read_reg16(src[1:-1])))
+        r = 'tmp8'
+    elif src in REGIDX:
+        # add a,(ix+o)
+        do.append(mem_shortcut())
+        todo, r = read_idx(src, mem='mem')
+        do += todo
+        do.append('tmp8 = %(r)s' % locals())
+        r = 'tmp8'
+    elif src == '#':
+        # add a,n
+        do += read_op()
+        r = 'tmp8'
+    else:
+        raise SyntaxError('ADD invalid pair %s,%s' % (dst, src))    
+    do.append('tmp16 = %(a)s + %(r)s' % locals())
+    do.append('tmp8 = ((%(a)s & 0x88) >> 3) | ((%(r)s & 0x88) >> 2) | ((tmp16 & 0x88) >> 1)' % locals())
+    do += write_reg8(dst, 'tmp16')
+    
+    do += write_flags('(CF if tmp16 & 0x100 else 0) '
+                      '| HALFCARRY_ADD_TABLE[tmp8 & 0x07] '
+                      '| OVERFLOW_ADD_TABLE[tmp8 >> 4] '
+                      '| SZ53_TABLE[%(a)s]' % locals())
+        
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+GEN_DICT['ADD'] = add
+
+
+# #define ADD16(value1,value2)\
+# {\
+#   Z80EX_DWORD add16temp = (value1) + (value2); \
+#   Z80EX_BYTE lookup = ( (  (value1) & 0x0800 ) >> 11 ) | \
+#               ( (  (value2) & 0x0800 ) >> 10 ) | \
+#               ( ( add16temp & 0x0800 ) >>  9 );  \
+#   MEMPTR=value1+1;\
+#   (value1) = add16temp;\
+#   F = ( F & ( FLAG_V | FLAG_Z | FLAG_S ) ) |\
+#       ( add16temp & 0x10000 ? FLAG_C : 0 )|\
+#       ( ( add16temp >> 8 ) & ( FLAG_3 | FLAG_5 ) ) |\
+#       halfcarry_add_table[lookup];\
+# }
+
+def add16(code, op, table=None):
+    """ ADC HL"""
+    dst, src = [x.lower() for x in op['mn'][1]]
+    do = []
+    hl = read_reg16(dst)
+    f = read_reg8('f')
+    
+    if src in REG16:
+        # add rr,rr
+        r = read_reg16(src)
+    else:
+        raise SyntaxError('ADD16 invalid pair %s,%s' % (dst, src))    
+    do.append('tmp16 = %(hl)s + %(r)s' % locals())
+    do.append('tmp8 = ((%(hl)s & 0x0800) >> 11) | ((%(r)s & 0x0800) >> 10) | ((tmp16 & 0x0800) >> 9)' % locals())
+    do += write_reg16(dst, 'tmp16')
+    
+    do += write_flags('(%(f)s & VZSF) '
+                      '| (CF if tmp16 & 0x10000 else 0) '
+                      '| ((tmp16 >> 8) & XYF) '
+                      '| HALFCARRY_ADD_TABLE[tmp8] ' % locals())
+        
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+
+
+# #define BIT( bit, value ) \
+# { \
+#   F = ( F & FLAG_C ) | FLAG_H | sz53p_table[(value) & (0x01 << (bit))] | ((value) & 0x28); \
+# }
+
+def bit(code, op, table=None):
+    """ BIT """
+    bit, src = [x.lower() for x in op['mn'][1]]
+    f = read_reg8('f')
+    do = []
+    bit = 0x01 << int(bit)
+    
+    if src in REG8:
+        # bit n,r
+        r = read_reg8(src)
+    elif src in REG16IND:
+        # bit n,(rr)
+        do.append('tmp8 = %s' % read(read_reg16(src[1:-1])))
+        r = 'tmp8'
+    else:
+        raise SyntaxError('BIT invalid source %s' % src)
+    
+    do += write_flags('(%(f)s & CF) | HF | SZ53_TABLE[%(r)s & 0x%(bit)02X] | (%(r)s & 0x28)' % locals())
+        
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+GEN_DICT['BIT'] = bit
+
+
+# /*BIT n,(IX+d/IY+d) and BIT n,(HL)*/
+# #define BIT_MPTR( bit, value) \
+# { \
+#   F = ( F & FLAG_C ) | FLAG_H | (sz53p_table[(value) & (0x01 << (bit))] & 0xD7) | ((MEMPTRh) & 0x28); \
+# }
+
+# TODO bit_mptr
+
+
 def nop(code, op, table=None):
     """ NOP """
     ret = std_head(code, op, table)
     return make_code(code, ret, table)
 GEN_DICT['NOP'] = nop
+
 
 def ld(code, op, table=None):
     """ LD """
@@ -94,20 +369,18 @@ def ld(code, op, table=None):
         # ret = 'self.write(%(adr)s, self.read_op_arg())' % locals()
     elif (dst in REG8) and (src in REGIDX):
         # ld r, (ix+o)
-        reg = 'ix' if 'ix' in src else 'iy'
         do.append(mem_shortcut())
-        do += read_op('mem')
-        do += to_signed('tmp8')
-        do += write_reg8(dst, read(read_reg16(reg) + ' + tmp8', 'mem'), False)
-        # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
-        # ret = 'self.%(dst)s = self.read(%(adr)s)' % locals()
+        todo, r = read_idx(src, mem='mem')
+        do += todo
+        do += write_reg8(dst, r, False)
     elif (dst in REGIDX) and (src in REG8):
         # ld (ix+o), r
-        reg = 'ix' if 'ix' in dst else 'iy'
+        # reg = 'ix' if 'ix' in dst else 'iy'
         do.append(mem_shortcut())
-        do += read_op('mem')
-        do += to_signed('tmp8')
-        do += write(read_reg16(reg) + ' + tmp8', read_reg8(src), 'mem')
+        do += write_idx(dst, read_reg8(src), 'mem')
+        # do += read_op('mem')
+        # do += to_signed('tmp8')
+        # do += write(read_reg16(reg) + ' + tmp8', read_reg8(src), 'mem')
         # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
         # ret = 'self.write(%(adr)s, self.%(src)s)' % locals()
     else:

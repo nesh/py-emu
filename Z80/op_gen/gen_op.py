@@ -147,7 +147,6 @@ def gen_prefix(code, data, parent=None):
         '# ' + '-'*70,
         ''
     ]
-    # TODO Prefix FD/DDCB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     for code, op in data.items():
         if not isinstance(op, dict): continue # skip extra data
         if op['multi_mn']: continue # not implemented for now

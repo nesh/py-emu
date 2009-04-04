@@ -48,7 +48,23 @@ def to_signed(what):
             '%(i)s%(what)s = -(256 - %(what)s)' % locals(),
     ]
 
-def write_flags(what, force=True):
+def read_idx(src, mem=state('mem')):
+    reg = 'ix' if 'ix' in src else 'iy'
+    do = []
+    do += read_op(mem)
+    do += to_signed('tmp8')
+    ret = read(read_reg16(reg) + ' + tmp8', mem)
+    return do, ret
+
+def write_idx(dst, src, mem=state('mem')):
+    reg = 'ix' if 'ix' in dst else 'iy'
+    do = []
+    do += read_op(mem)
+    do += to_signed('tmp8')
+    do += write(read_reg16(reg) + ' + tmp8', src, mem)
+    return do
+
+def write_flags(what, force=False):
     f = state('f')
     if force:
         return ['%(f)s = (%(what)s) & 0xFF' % locals()]

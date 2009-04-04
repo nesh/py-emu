@@ -21,11 +21,11 @@ CF = 0x01
 NF = 0x02
 PF = 0x04
 VF = PF
-XF = 0x08 # flag 3
-F3 = XF
+XF = 0x08 # flag 3 (MAME name)
+F3 = XF # same as XF
 HF = 0x10
-YF = 0x20 # flag 5
-F5 = YF
+YF = 0x20 # flag 5  (MAME name)
+F5 = YF # same as YF
 ZF = 0x40
 SF = 0x80
 
