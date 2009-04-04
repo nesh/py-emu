@@ -1,11 +1,52 @@
+""" misc functions """
+IDENT = ' ' * 4
+HEAD = r'''def %s(z80):'''
+
 def state(what):
     return 'z80.%s' % what
 
-def state_ind(what):
-    return state(what[1:-1])
+ICOUNT = r"""%s -= %%d""" % state('icount') # TODO: what's faster a['foo'] or a.foo?
+
+def gen_name(code, table):
+    if table:
+        return 'opcode_%s%02x' % (table, code)
+    else:
+        return 'opcode_%02x' % code
+
+def gen_doc(code, asm, prefix=None):
+    if not prefix:
+        return '%s"""0x%02X: %s"""' % (IDENT, code, asm)
+    else:
+        return '%s"""0x%s%02X: %s"""' % (IDENT, prefix.upper(), code, asm)
+
+def gen_jp(table=None):
+    if table:
+        return 'JP_%s' % table.upper()
+    else:
+        return 'JP_BASE'
+
+def std_head(code, op, table):
+    return [
+        HEAD % gen_name(code, table),
+        gen_doc(code, op['asm'], table),
+        '%s%s' % ((IDENT), (ICOUNT % op['t'])),
+    ]
+
+def make_code(code, data, table):
+    return ('\n'.join(data), '%s[0x%02X] = %s' % (gen_jp(table), code, gen_name(code, table)))
 
 # keep API separated
-read_reg8 = read_flags = read_reg16 = state
+read_reg8 = read_reg16 = state
+
+def read_flags():
+    return state('f')
+
+def to_signed(what):
+    i = IDENT
+    return [
+        'if %(what)s & 0x80: # convert to signed' % locals(),
+            '%(i)s%(what)s = -(256 - %(what)s)' % locals(),
+    ]
 
 def write_flags(what, force=True):
     f = state('f')

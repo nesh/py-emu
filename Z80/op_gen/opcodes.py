@@ -1,9 +1,8 @@
-from rw import *
+from tools import *
 
 __all__ = ('GEN_DICT',)
 
 
-IDENT = ' ' * 4
 REG8 = ('a', 'f', 'b', 'c', 'd', 'e', 'h', 'l', 'ixh', 'ixl', 'iyh', 'iyl')
 REG16 = ('af', 'bc', 'de', 'hl', 'ix', 'iy', 'pc', 'sp')
 REGANY = REG8 + REG16
@@ -12,30 +11,24 @@ REG16IND = ('(bc)', '(de)', '(hl)', '(sp)')
 REGIDX = ('(ix+$)', '(iy+$)')
 COND = ('c', 'z', 'm', 'pe',)
 NOTCOND = ('nc', 'nz', 'p', 'po',)
-ICOUNT = r"""%s -= %%d""" % state('icount') # TODO: what's faster a['foo'] or a.foo?
-HEAD = r'''def %s(z80):'''
 
 # globals
 GEN_DICT = {}
 
-def nop(code, op, table='base'):
-    name = 'opcode_%s_%02X' % (table, code)
-    ret = [
-        HEAD % name,
-        '%s"""0x%02X: %s"""' % ((IDENT), code, op['asm']),
-        '%s%s' % ((IDENT), (ICOUNT % op['t'])),
-    ]
-    return ('\n'.join(ret), 'JP_%s[0x%02X] = %s' % (table.upper(), code, name))
+def nop(code, op, table=None):
+    """ NOP """
+    ret = std_head(code, op, table)
+    return make_code(code, ret, table)
 GEN_DICT['NOP'] = nop
 
-def ld(code, op, table='base'):
+def ld(code, op, table=None):
+    """ LD """
     dst, src = [x.lower() for x in op['mn'][1]]
-    name = 'opcode_%s_%02X' % (table, code)
-
     do = []
-
+    
     if dst == src:
-        do.append('pass # no-op')
+        # ld a,a and others
+        pass # no-op
     elif (dst == 'a') and (src in ('r', 'i')):
         # reading R and I changes flags!
         r = read_reg8(src)
@@ -88,14 +81,39 @@ def ld(code, op, table='base'):
         # ld r, (nnnn)
         do += read_op()
         do += write_reg8(dst, 'tmp8')
+    elif (dst in REGIDX) and (src == '#'):
+        # ld (ix+o), nn
+        reg = 'ix' if 'ix' in dst else 'iy'
+        do.append(mem_shortcut())
+        do += read_op('mem')
+        do += to_signed('tmp8')
+        do.append('tmp16 = ' + read_reg16(reg) + ' + tmp8')
+        do += read_op('mem')
+        do += write('tmp16', 'tmp8', 'mem')
+        # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+        # ret = 'self.write(%(adr)s, self.read_op_arg())' % locals()
+    elif (dst in REG8) and (src in REGIDX):
+        # ld r, (ix+o)
+        reg = 'ix' if 'ix' in src else 'iy'
+        do.append(mem_shortcut())
+        do += read_op('mem')
+        do += to_signed('tmp8')
+        do += write_reg8(dst, read(read_reg16(reg) + ' + tmp8', 'mem'), False)
+        # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+        # ret = 'self.%(dst)s = self.read(%(adr)s)' % locals()
+    elif (dst in REGIDX) and (src in REG8):
+        # ld (ix+o), r
+        reg = 'ix' if 'ix' in dst else 'iy'
+        do.append(mem_shortcut())
+        do += read_op('mem')
+        do += to_signed('tmp8')
+        do += write(read_reg16(reg) + ' + tmp8', read_reg8(src), 'mem')
+        # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+        # ret = 'self.write(%(adr)s, self.%(src)s)' % locals()
     else:
-        raise KeyError('LD: invalid pair %s, %s' % (dst, src))
-
-    ret = [
-        HEAD % name,
-        '%s"""0x%02X: %s"""' % ((IDENT), code, op['asm']),
-    ]
+        raise SyntaxError('LD: invalid pair %s, %s' % (dst, src))
+    
+    ret = std_head(code, op, table)
     ret += [IDENT + x for x in do] # add commands
-
-    return ('\n'.join(ret), 'JP_%s[0x%02X] = %s' % (table.upper(), code, name))
+    return make_code(code, ret, table)
 GEN_DICT['LD'] = ld
