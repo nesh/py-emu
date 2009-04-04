@@ -288,6 +288,14 @@ GEN_DICT['BIT'] = bit
 
 # TODO bit_mptr
 
+# #define CALL(addr, wr1, wr2) \
+# {\
+#   PUSH(PC,wr1,wr2); \
+#   PC=addr; \
+#   MEMPTR=addr;\
+# }
+
+
 
 def nop(code, op, table=None):
     """ NOP """
@@ -390,3 +398,56 @@ def ld(code, op, table=None):
     ret += [IDENT + x for x in do] # add commands
     return make_code(code, ret, table)
 GEN_DICT['LD'] = ld
+
+
+# #define POP(rp, rd1, rd2) \
+# {\
+#   regpair tmp; \
+#   READ_MEM(tmp.b.l,SP++,rd1);\
+#   READ_MEM(tmp.b.h,SP++,rd2);\
+#   rp=tmp.w;\
+# }
+
+def pop(code, op, table=None):
+    """ POP """
+    src = op['mn'][1].lower()
+    do = []
+    
+    do.append(mem_shortcut())
+    if src in REG16:
+        # push rr
+        do += pop_reg(src, 'mem')
+    else:
+        raise SyntaxError('POP invalid source %s' % src)
+    
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+GEN_DICT['POP'] = pop
+
+
+# /*wr1=t-states before first byte, wr2=t-states before second*/
+# #define PUSH(rp, wr1, wr2) \
+# {\
+#   regpair tmp; \
+#   tmp.w=rp; \
+#   WRITE_MEM(--SP, tmp.b.h, wr1); \
+#   WRITE_MEM(--SP, tmp.b.l, wr2); \
+# }
+
+def push(code, op, table=None):
+    """ PUSH """
+    src = op['mn'][1].lower()
+    do = []
+    
+    do.append(mem_shortcut())
+    if src in REG16:
+        # push rr
+        do += push_reg(src, 'mem')
+    else:
+        raise SyntaxError('PUSH invalid source %s' % src)
+    
+    ret = std_head(code, op, table)
+    ret += [IDENT + x for x in do] # add commands
+    return make_code(code, ret, table)
+GEN_DICT['PUSH'] = push

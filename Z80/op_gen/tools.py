@@ -98,6 +98,30 @@ def write16(where, what, mem=state('mem')):
         '%(mem)s.write((%(where)s) + 1, %(what)s / 256)' % locals()
     ]
 
+
+def pop_reg(reg, mem=state('mem')):
+    h = reg[0]
+    l = reg[1]
+    sp = read_reg16('sp')
+    do = []
+    do += write_reg8(l, read('sp', mem), force=False)
+    do += write_reg16('sp', '%(sp)s + 1' % locals(), force=False)
+    do += write_reg8(h, read('sp', mem), force=False)
+    do += write_reg16('sp', '%(sp)s + 1' % locals())
+    return do
+
+
+def push_reg(reg, mem=state('mem')):
+    h = read_reg8(reg[0])
+    l = read_reg8(reg[1])
+    sp = read_reg16('sp')
+    do = []
+    do += write_reg16('sp', '%(sp)s - 1' % locals(), force=False)
+    do += write(sp, h, mem)
+    do += write_reg16('sp', '%(sp)s - 1' % locals())
+    do += write(sp, l, mem)
+    return do
+
 def read_op(mem=state('mem')):
     what = read_reg16('pc')
     return ['tmp8 = %(mem)s.read_op(%(what)s)' % locals()] \
