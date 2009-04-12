@@ -3,7 +3,7 @@
 # ipython-extensions>=0.2
 # ipdb>=0.1
 # ctypes>=1.0.2
-# nose>=0.10.4
+nose>=0.10.4
 # numpy>=1.2.1
 # Sphinx>=0.5.1
 # psyco>=1.6
