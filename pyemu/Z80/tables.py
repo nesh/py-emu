@@ -54,12 +54,12 @@ def _init_tables():
     PARITY_TABLE = []
     
     for i in range(0, 0x100):
-        SZXY_TABLE.append(i & ( XF | YF | SF ))
+        SZXY_TABLE.append(i & XYSF)
         j = i
         parity = 0
         for k in range(0, 8):
             parity ^= j & 1
-            parity &= 0xFF
+            # parity &= 0xFF
             j >>= 1
         PARITY_TABLE.append(0 if parity else PF)
         SZXYP_TABLE.append(SZXY_TABLE[i] | PARITY_TABLE[i])

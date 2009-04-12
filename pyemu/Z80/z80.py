@@ -53,6 +53,7 @@ class Z80(CPU):
         self.in_halt = False
         self.prefix = 0
         self.no_irq_once = False
+        self.memptr = 0
 
     def run(self, cycles=0):
         # run until we spend all cycles
@@ -89,7 +90,7 @@ class Z80(CPU):
         return ''.join(ret)
 
     def disassemble(self, address, bytes=1, dump_adr=True, dump_hex=True):
-        from dasm import *
+        from dasm import dasm
         ret = []
         while bytes > 0:
             s, ln = dasm(address, self.read)
@@ -202,4 +203,20 @@ class Z80(CPU):
             return self.iy & 0xFF
         def fset(self, val):
             self.iy = (self.iy & 0xFF00) | (val & 0xFF)
+        return locals()
+
+    @Property
+    def pch():
+        def fget(self):
+            return (self.pc & 0xFF00) / 256
+        def fset(self, val):
+            self.pc = (self.pc & 0x00FF) | ((val & 0xFF) * 256)
+        return locals()
+    
+    @Property
+    def pcl():
+        def fget(self):
+            return self.pc & 0xFF
+        def fset(self, val):
+            self.pc = (self.pc & 0xFF00) | (val & 0xFF)
         return locals()

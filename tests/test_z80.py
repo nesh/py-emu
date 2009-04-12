@@ -191,13 +191,26 @@ class TestData(object):
 
 
 
-class TIO(RAM):
+class Mem(RAM):
+    def read(self, adr, dbg=False):
+        ret = self.mem[adr & self.adr_mask]
+        if dbg:
+            print 'R: %04X - %02X' % (adr, ret)
+        return ret
+    read_op = read
+
+    def write(self, adr, value, dbg=False):
+        if dbg:
+            print 'W: %04X, %02X' % (adr, value & self.data_mask)
+        self.mem[adr & self.adr_mask] = value & self.data_mask
+
+class TIO(Mem):
     def __init__(self, adr_width, bit_width):
         super(TIO, self).__init__(adr_width, bit_width)
         self.mem = [0xFF] * self.size
 
 
-mem = RAM(16, 8)
+mem = Mem(16, 8)
 io = TIO(16, 8)
 cpu = Z80(mem, io)
 
@@ -207,7 +220,7 @@ def _cpu_test(code, data):
         for a, l in data.test_in['mem'].iteritems():
             i = 0
             for c in l:
-                cpu.write((a + i), c)
+                cpu.write((a + i), c, False)
                 i += 1
             a += len(l)
     
@@ -225,7 +238,7 @@ def _cpu_test(code, data):
         for reg, val in data.test_out['regs'].items():
             r = getattr(cpu, reg)
             if reg == 'af':
-                assert r == val, '%s(%04X) != %04X (F: %s != %s)' %\
+                assert r == val, '%s(%04X) != %04X (F: e:%s != g:%s)' %\
                                  (reg, r, val, cpu.flags_as_str(r & 0xFF), cpu.flags_as_str(val & 0xFF))
             else:
                 assert r == val, '%s(%04X) != %04X' % (reg, r, val)
@@ -237,11 +250,8 @@ def _cpu_test(code, data):
                 a += 1
         
         # check T
-        assert data.test_out['icount'] == cpu.itotal, '%d != %d' % (data.test_out['icount'], cpu.itotal)
-    except CPUTrapInvalidOP:
-        # warnings.warn('Opcode %X skipped' % code)
-        pass
-    except Exception:
+        assert data.test_out['icount'] == cpu.itotal, 'T-states expeced %d, got %d' % (data.test_out['icount'], cpu.itotal)
+    except AssertionError:
         print
         print oldcpu
         print cpu.disassemble(0, bytes=len(data.test_in['mem'][start_pc]))
@@ -249,24 +259,11 @@ def _cpu_test(code, data):
         print 'Test: %X' % code
         print 'req %dT used %dT overflow %dT' % (run_for, cpu.itotal, -cpu.icount)
         print cpu
+        print
+        for a, m in data.test_in['mem'].items():
+            print '%04X: %s' % (a, ['%02X' % b for b in m])
         raise
 
-# def test_cpu():
-#     """ test cpu instruction set (dir)"""
-#     for root, dirs, files in os.walk(_testdir):
-#         for name in files:
-#             #if not name.endswith('.in') and not name.endswith('.out'):
-#             if not name.endswith('.in'): continue
-#             _cpu_test.description = 'Z80: test %s' % name
-#             n, e = os.path.splitext(name)
-#             nn = n[:]
-#             if '_' in nn:
-#                 nn = nn[:-2] # strip _x
-#             code = int('0x%s' % nn, 16)
-#             inf = open(os.path.join(root, name))
-#             outf = open(os.path.join(root, '%s.out' % n))
-#             data = TestData(inf.read(), outf.read(), n, code)
-#             yield _cpu_test, code, data
 
 def test_cpu_zip():
     """ test cpu instruction set (zip)"""
@@ -283,18 +280,16 @@ def test_cpu_zip():
         try:
             data = TestData(zf.read(name), zf.read('%s.out' % n), n, code)
         except DataError, err:
-            print err
+            # print err
             continue
         # skip uninplemented instructions
-        # try:
-        _cpu_test(code, data)
-        # except CPUTrapInvalidOP, err:
-        #     # TODO enable for final tests!
-        #     # warnings.warn('%x not tested, invalid opcode' % code)
-        #     continue
-        # except AssertionError, err:
-        #     pass
+        try:
+            _cpu_test(code, data)
+        except CPUTrapInvalidOP, err:
+            # warnings.warn('%x not tested, invalid opcode' % code)
+            continue
         yield _cpu_test, code, data
+
 
 if __name__ == '__main__':
     import nose

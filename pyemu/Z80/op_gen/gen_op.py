@@ -7,7 +7,7 @@ import warnings
 import shlex
 from pprint import pprint
 
-from tools import gen_name, gen_jp, IDENT, state, ICOUNT
+from tools import gen_name, gen_jp, IDENT, state, ICOUNT, ITOTAL
 from opcodes import GEN_DICT, read_op
 
 MYDIR = os.path.abspath(os.path.dirname(__file__))
@@ -138,8 +138,9 @@ def gen_prefix(code, data, parent=None):
         'def %s(z80):' % fname,
     ]
     ret += [IDENT + x for x in read_op()]
-    if code in (0xDD, 0xFD, 0xED):
-        ret.append('%s%s' % (IDENT, (ICOUNT % 4)))
+    # if code in (0xDD, 0xFD, 0xED):
+    ret.append('%s%s' % (IDENT, (ICOUNT % 4)))
+    ret.append('%s%s' % (IDENT, (ITOTAL % 4)))
     ret += [
         '%(i)s%(r)s += 1' % {'i': IDENT, 'r': state('_r')},
         '%(i)s%(jp)s[tmp8](z80)' % {'i': IDENT, 'jp': gen_jp(table), 'op': read_op()},

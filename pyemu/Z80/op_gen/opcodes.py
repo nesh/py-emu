@@ -18,10 +18,8 @@ class And(GenOp):
       F = FLAG_H | sz53p_table[A];\
     }
     """
-    
-    def gen(self, dst, src):
-        if (dst in REG16) and (src in REG16):
-            self.adc16(dst, src)
+    def gen(self, dst, src, op):
+        self.arg1(src)
         self.add_line('$A &= $r')
         self.set_flags('HF | SZXYP_TABLE[$A]')
 And(GEN_DICT)
@@ -41,11 +39,11 @@ class Adc(GenOp):
           sz53_table[A];\
     }
     """
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
         """ ADC A,r1"""
         if (dst in REG16) and (src in REG16):
-            self._adc16(dst, src)
-            return
+            return self._adc16(dst, src, op)
+        self.arg2(dst, src)
         self.add_line('tmp16 = $A + $r1 + ($F & CF)')
         self.add_line('tmp8 = (($A & 0x88) >> 3) | (($r1 & 0x88) >> 2) | ((tmp16 & 0x88) >> 1)')
         self.add_lines(write_reg8(dst, 'tmp16'))
@@ -54,7 +52,7 @@ class Adc(GenOp):
                        ' | OV_ADD_TABLE[tmp8 >> 4]'
                        ' | SZXY_TABLE[$A]')
     
-    def _adc16(self, dst, src):
+    def _adc16(self, dst, src, op):
         """ ADC HL,rr
         #define ADC16(hl, value)\
         {\
@@ -62,7 +60,7 @@ class Adc(GenOp):
           Z80EX_BYTE lookup = ( (        HL & 0x8800 ) >> 11 ) | \
                       ( (   (value) & 0x8800 ) >> 10 ) | \
                       ( ( add16temp & 0x8800 ) >>  9 );  \
-          MEMPTR=hl+1; <------- WTF?
+          MEMPTR=hl+1;
           HL = add16temp;\
           F = ( add16temp & 0x10000 ? FLAG_C : 0 )|\
               overflow_add_table[lookup >> 4] |\
@@ -72,7 +70,9 @@ class Adc(GenOp):
         }
         """
         
+        self.arg2_16(dst, src)
         self.add_line('tmp16 = $HL + $rr1 + ($F & CF)')
+        self.add_line('$MEMPTR = $HL + 1')
         self.add_line('tmp8 = (($HL & 0x8800) >> 11) '
                       '| (($rr1 & 0x8800) >> 10) '
                       '| ((tmp16 & 0x8800) >> 9)')
@@ -98,10 +98,11 @@ class Add(GenOp):
           sz53_table[A];\
     }
     """
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
         """ ADD r,r1 """
         if (dst in REG16) and (src in REG16):
-            return self._add16(dst, src)
+            return self._add16(dst, src, op)
+        self.arg2(dst, src)
         self.add_line('tmp16 = $A + $r1')
         self.add_line('tmp8 = (($A & 0x88) >> 3) '
                       '| (($r1 & 0x88) >> 2) '
@@ -112,7 +113,7 @@ class Add(GenOp):
                        '| OV_ADD_TABLE[tmp8 >> 4] '
                        '| SZXY_TABLE[$A]')
 
-    def _add16(self, dst, src):
+    def _add16(self, dst, src, op):
         """ ADD rr,rr1
         #define ADD16(value1,value2)\
         {\
@@ -128,10 +129,12 @@ class Add(GenOp):
               halfcarry_add_table[lookup];\
         }
         """
+        self.arg2_16(dst, src)
         self.add_line('tmp16 = $rr + $rr1')
         self.add_line('tmp8 = (($rr & 0x0800) >> 11) '
                       '| (($rr1 & 0x0800) >> 10) '
                       '| ((tmp16 & 0x0800) >> 9)')
+        self.add_line('$MEMPTR = $rr + 1')
         self.add_lines(write_reg16(dst, 'tmp16'))
         self.set_flags('($F & VZSF) '
                        '| (CF if tmp16 & 0x10000 else 0) '
@@ -145,51 +148,157 @@ class Bit(GenOp):
         { \
           F = ( F & FLAG_C ) | FLAG_H | sz53p_table[(value) & (0x01 << (bit))] | ((value) & 0x28); \
         }
+
+        /*BIT n,(IX+d/IY+d) and BIT n,(HL)*/ -- TODO???
+        #define BIT_MPTR( bit, value) \
+        { \
+          F = ( F & FLAG_C ) | FLAG_H | (sz53p_table[(value) & (0x01 << (bit))] & 0xD7) | ((MEMPTRh) & 0x28); \
+        }
     """
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
+        self.arg_bit(dst, src)
         bit = 0x01 << int(dst)
         self.set_flags('($F & CF)'
                        ' | HF'
-                       ' | SZXY_TABLE[$r1 & 0x%(bit)02X]'
-                       ' | ($r1 & 0x28)' % locals())
+                       ' | SZXYP_TABLE[$r1 & 0x%(bit)02X]' % locals())
+                       # ' | ($r1 & 0x28)' % locals())
 Bit(GEN_DICT)
-
-class BitMPTR(GenOp):
-    """
-    /*BIT n,(IX+d/IY+d) and BIT n,(HL)*/
-    #define BIT_MPTR( bit, value) \
-    { \
-      F = ( F & FLAG_C ) | FLAG_H | (sz53p_table[(value) & (0x01 << (bit))] & 0xD7) | ((MEMPTRh) & 0x28); \
-    }
-    """
-    pass
-# TBD
 
 
 class Nop(GenOp):
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
         pass
 Nop(GEN_DICT)
 
+COND = {
+    'c': '$F & CF',
+    'nc': 'not ($F & CF)',
+    'nz': 'not ($F & ZF)',
+    'z': '$F & ZF',
+    'pe': '$F & PF',
+    'po': 'not ($F & PF)',
+    'p': 'not ($F & SF)',
+    'm': '$F & SF',
+}
+
+class Call(GenOp):
+    """ CALL
+    
+	PUSH(PC,wr1,wr2); \
+	PC=addr; \
+	MEMPTR=addr;\
+    """
+    def gen(self, cond, src, op):
+        self.add_line(mem_shortcut())
+        self.add_lines(read_op16('mem'))
+        if cond is None:
+            self.add_lines(push_reg('pc', 'mem'))
+            self.add_line('$PC = tmp16')
+            return
+        # cond call
+        if cond not in COND:
+            raise SyntaxError('CALL: invald condition %s' % cond)
+        self.add_line('if %s:' % COND[cond])
+        self.add_line('# taken', 2)
+        self.add_lines(push_reg('pc', 'mem'), 2)
+        self.add_line('$PC = tmp16', 2)
+        self.add_t(op['t'][1], 2)
+        self.add_line('else:')
+        self.add_line('# not taken', 2)
+        self.add_t(op['t'][0], 2)
+Call(GEN_DICT)
+
+
 class Ld(GenOp):
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
         """ LD r, r1"""
+        do = []
         if dst == src:
+            # ld a,a and others
             pass # no-op
-        elif (dst == 'a') and (src in REG8_SPEC):
-            # ld a,i/r (changes flags!)
-            self.add_lines(write_reg8(dst, self.args['r']))
-            self.set_flags('($F & CF) '
-                           '| SZXY_TABLE[$r1] '
-                           '| (VF if $IFF2 else 0)')
-        elif dst in (REG8 + REG8_SPEC):
-            self.add_lines(write_reg8(dst, self.args['r1'], force=False))
-        elif dst in REG16:
-            self.add_lines(write_reg16(dst, self.args['rr1'], force=False))
-        elif dst in REG16IND:
-            self.args['rr'] = read_reg16(dst[1:-1])
+        elif (dst == 'a') and (src in ('r', 'i')):
+            # reading R and I changes flags!
+            r = read_reg8(src)
+            do += write_reg8(dst, r)
+            f = read_flags()
+            iff2 = state('iff2')
+            do += write_flags('(%(f)s & CF) | SZXY_TABLE[%(r)s] | (VF if %(iff2)s else 0)' % locals())
+        elif ((dst in REG8) or (dst in ('r', 'i'))) and (src in REG8):
+            # ld r,r1
+            do += write_reg8(dst, read_reg8(src), False)
+        elif (dst in REG16) and (src in REG16):
+            # ld rr,rr1
+            do += write_reg16(dst, read_reg16(src), False)
+        elif (dst in REG16) and (src == '@'):
+            # ld rr,nnnn
+            do.append(mem_shortcut())
+            do += read_op16('mem')
+            do += write_reg16(dst, 'tmp16', False)
+        elif (dst in REG8) and (src == '#'):
+            # ld r, n
+            do += read_op()
+            do += write_reg8(dst, 'tmp8', False)
+        elif (dst in REG16IND) and (src in REG8):
+            # ld (rr), r
+            do += write(read_reg16(dst[1:-1]), read_reg8(src))
+        elif (dst in REG16IND) and (src == '#'):
+            # ld (rr), nn
+            do.append(mem_shortcut())
+            do += read_op('mem')
+            do += write(read_reg16(dst[1:-1]), 'tmp8', 'mem')
+        elif (dst in REG8) and (src in REG16IND):
+            # ld r, (rr)
+            do += write_reg8(dst, read(read_reg16(src[1:-1])), False)
+        elif (dst == '(@)') and (src in REG16):
+            # ld (nnnn), rr
+            do.append(mem_shortcut())
+            do += read_op16('mem')
+            do += write16('tmp16', read_reg16(src), 'mem')
+        elif (dst in REG16) and (src == '(@)'):
+            # ld rr, (nnnn)
+            do.append(mem_shortcut())
+            do += read_op16('mem')
+            do += write_reg16(dst, read16('tmp16', 'mem'), False)
+        elif (dst == '(@)') and (src in REG8):
+            # ld (nnnn), r
+            do.append(mem_shortcut())
+            do += read_op16('mem')
+            do += write('tmp16', read_reg8(src), 'mem')
+        elif (dst in REG8) and (src == '(@)'):
+            # ld r, (nnnn)
+            do.append(mem_shortcut())
+            do += read_op16('mem')
+            do += write_reg8(dst, read('tmp16', 'mem'))
+        elif (dst in REGIDX) and (src == '#'):
+            # ld (ix+o), nn
+            reg = 'ix' if 'ix' in dst else 'iy'
+            do.append(mem_shortcut())
+            do += read_op('mem')
+            do += to_signed('tmp8')
+            do.append('tmp16 = ' + read_reg16(reg) + ' + tmp8')
+            do += read_op('mem')
+            do += write('tmp16', 'tmp8', 'mem')
+            # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            # ret = 'self.write(%(adr)s, self.read_op_arg())' % locals()
+        elif (dst in REG8) and (src in REGIDX):
+            # ld r, (ix+o)
+            do.append(mem_shortcut())
+            todo, r = read_idx(src, mem='mem')
+            do += todo
+            do += write_reg8(dst, r, False)
+        elif (dst in REGIDX) and (src in REG8):
+            # ld (ix+o), r
+            # reg = 'ix' if 'ix' in dst else 'iy'
+            do.append(mem_shortcut())
+            do += write_idx(dst, read_reg8(src), 'mem')
+            # do += read_op('mem')
+            # do += to_signed('tmp8')
+            # do += write(read_reg16(reg) + ' + tmp8', read_reg8(src), 'mem')
+            # adr = 'self.%s + as_signed(self.read_op_arg())' % reg
+            # ret = 'self.write(%(adr)s, self.%(src)s)' % locals()
         else:
             raise SyntaxError('LD: invalid pair %s, %s' % (dst, src))
+        self.do = do
 Ld(GEN_DICT)
 
 
@@ -203,7 +312,7 @@ class Pop(GenOp):
       rp=tmp.w;\
     }
     """
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
         self.add_line(mem_shortcut())
         self.add_lines(pop_reg(src, 'mem'))
 Pop(GEN_DICT)
@@ -219,7 +328,7 @@ class Push(GenOp):
           WRITE_MEM(--SP, tmp.b.l, wr2); \
         }
     """
-    def gen(self, dst, src):
+    def gen(self, dst, src, op):
         self.add_line(mem_shortcut())
         self.add_lines(push_reg(src, 'mem'))
 Push(GEN_DICT)

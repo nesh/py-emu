@@ -42,12 +42,16 @@ def gen_jp(table=None):
         return 'JP_BASE'
 
 def std_head(code, op, table):
-    return [
+    ret = [
         HEAD % gen_name(code, table),
         gen_doc(code, op['asm'], table),
-        '%s%s' % ((IDENT), (ICOUNT % op['t'])),
-        '%s%s' % ((IDENT), (ITOTAL % op['t'])),
     ]
+    if not isinstance(op['t'], (list, tuple)):
+        ret += [
+            '%s%s' % ((IDENT), (ICOUNT % op['t'])),
+            '%s%s' % ((IDENT), (ITOTAL % op['t'])),
+        ]
+    return ret
 
 def make_code(code, data, table):
     return ('\n'.join(data), '%s[0x%02X] = %s' % (gen_jp(table), code, gen_name(code, table)))
@@ -117,8 +121,12 @@ def write16(where, what, mem=state('mem')):
 
 
 def pop_reg(reg, mem=state('mem')):
-    h = reg[0]
-    l = reg[1]
+    if reg in ('ix', 'iy', 'pc'):
+        h = reg + 'h'
+        l = reg + 'l'
+    else:
+        h = reg[0]
+        l = reg[1]
     sp = read_reg16('sp')
     do = []
     do += write_reg8(l, read(sp, mem), force=False)
@@ -129,8 +137,14 @@ def pop_reg(reg, mem=state('mem')):
 
 
 def push_reg(reg, mem=state('mem')):
-    h = read_reg8(reg[0])
-    l = read_reg8(reg[1])
+    if reg in ('ix', 'iy', 'pc'):
+        h = reg + 'h'
+        l = reg + 'l'
+    else:
+        h = reg[0]
+        l = reg[1]
+    h = read_reg8(h)
+    l = read_reg8(l)
     sp = read_reg16('sp')
     do = []
     do += write_reg16('sp', '%(sp)s - 1' % locals(), force=False)
@@ -178,6 +192,7 @@ class GenOp(object):
         self.add_arg('IFF1', state('iff1'))
         self.add_arg('IFF2', state('iff2'))
         self.add_arg('IM', state('im'))
+        self.add_arg('MEMPTR', state('memptr'))
     
     def __call__(self, code, op, table=None):
         self.do = []
@@ -187,162 +202,265 @@ class GenOp(object):
         
         dst, src = self.dst, self.src # shortcut
         self.setup(dst, src) # misc stuff
-        skip_gen = False
-        
-        # the big bad switch^2 ;)
-        if (dst is None) and (src is None):
-            pass # no operands
-        elif dst is None:
-            # 1 operand
-            if src in REG8:
-                # r
-                self.args['r'] = read_reg8(src)
-            elif src in REG16:
-                # rr
-                self.args['rr'] = read_reg16(src)
-            elif self.src in REG16IND:
-                # rr
-                self.args['r'] = read(read_reg16(src[1:-1]))
-            elif src in REGIDX:
-                # (ix+o)
-                self.do.append(mem_shortcut())
-                todo, r = read_idx(self.src, mem='mem')
-                self.do += todo
-                self.args['r'] = r
-            elif src == '#':
-                # n
-                self.do += read_op()
-                self.args['r'] = 'tmp8'
-            else:
-                raise SyntaxError('%s: invalid operand %s' % (self.__class__.__name__, src))
-        else:
-            # 2 operands
-            if (dst in (REG8 + REG8_SPEC)) and (src in REG8):
-                # r,r1
-                self.args['r'] = read_reg8(dst)
-                self.args['r1'] = read_reg8(src)
-            elif (dst in REG8) and (src in (REG8 + REG8_SPEC)):
-                # r,r1
-                self.args['r'] = read_reg8(dst)
-                self.args['r1'] = read_reg8(src)
-            elif (dst in REG8) and (src in REG16IND):
-                # r, (rr)
-                self.args['r'] = read_reg8(dst)
-                # self.add_line('tmp8 = %s' % read(read_reg16(src[1:-1])))
-                self.args['r1'] = read(read_reg16(src[1:-1]))
-            elif (dst in REG8) and (src in REGIDX):
-                # r,(ix+o)
-                self.args['r'] = read_reg8(dst)
-                self.add_line(mem_shortcut())
-                todo, r = read_idx(src, mem='mem')
-                self.add_lines(todo)
-                self.add_line('tmp8 = %(r)s' % locals())
-                self.args['r1'] = 'tmp8'
-            elif (dst in REG8) and (src == '#'):
-                # r,n
-                self.args['r'] = read_reg8(dst)
-                self.add_lines(read_op(store_to=self.args['r']))
-                self.args['r1'] = 'tmp8'
-                # self.gen(dst, src)
-                skip_gen = True
-            elif (dst in BIT_NUMBERS) and (src in REG8):
-                # [0-8],n
-                self.args['r'] = dst
-                self.args['r1'] = read_reg8(src)
-            elif (dst in BIT_NUMBERS) and (src in REG16IND):
-                # [0-8], (rr)
-                self.args['r'] = dst
-                # self.add_line('tmp8 = %s' % read(read_reg16(src[1:-1])))
-                self.args['r1'] = read(read_reg16(src[1:-1]))
-            elif (dst in REG16) and (src in REG16):
-                # rr,rr1
-                self.args['rr'] = read_reg16(dst)
-                self.args['rr1'] = read_reg16(src)
-            elif (dst in REG16) and (src == '@'):
-                # rr,nnnn
-                self.add_line(mem_shortcut())
-                self.add_lines(read_op16(mem='mem', store_to=read_reg16(dst)))
-                self.args['rr1'] = 'tmp16'
-                # self.gen(dst, src)
-                skip_gen = True
-            elif (dst in REG16) and (src == '(@)'):
-                # rr, (nnnn)
-                self.add_line(mem_shortcut())
-                self.add_lines(read_op16('mem'))
-                self.args['rr'] = read_reg16(dst)
-                self.args['rr1'] = read16('tmp16')
-            elif (dst in REG16IND) and (src in REG8):
-                # (rr), r
-                self.args['r1'] = read_reg8(src)
-                self.gen(dst, src)
-                skip_gen = True
-                self.add_lines(write(self.args['rr'], self.args['r1']))
-            elif (dst in REG16IND) and (src == '#'):
-                # (rr), nn
-                self.add_line(mem_shortcut())
-                self.add_lines(read_op('mem'))
-                self.args['r1'] = 'tmp8'
-                self.gen(dst, src)
-                skip_gen = True
-                self.add_lines(write(self.args['rr'], 'tmp8', 'mem'))
-            elif (dst == '(@)') and (src in REG16):
-                # (nnnn), rr
-                self.add_line(mem_shortcut())
-                self.add_lines(read_op16('mem'))
-                self.args['rr1'] = read_reg16(src)
-                self.args['rr'] = 'tmp16'
-                # self.gen(dst, src)
-                skip_gen = True
-                self.add_lines(write16(self.args['rr'], self.args['rr1'], 'mem'))
-            elif (dst == '(@)') and (src in REG8):
-                # (nnnn), r
-                self.add_line(mem_shortcut())
-                self.add_lines(read_op16('mem'))
-                self.add_lines(write('tmp16', read_reg8(src), 'mem'))
-                skip_gen = True
-            elif (dst in REG8) and (src == '(@)'):
-                # r, (nnnn)
-                self.add_lines(read_op16())
-                self.args['r'] = read_reg8(dst)
-                self.args['r1'] = read('tmp16')
-            elif (dst in REGIDX) and (src == '#'):
-                # (ix+o), nn
-                self.args['r1'] = 'tmp8'
-                reg = 'ix' if 'ix' in dst else 'iy'
-                self.add_line(mem_shortcut())
-                self.add_lines(read_op('mem') + to_signed('tmp8'))
-                self.add_line('tmp16 = ' + read_reg16(reg) + ' + tmp8')
-                self.add_lines(read_op('mem'))
-                skip_gen = True
-                self.add_lines(write('tmp16', 'tmp8', 'mem'))
-            elif (dst in REG8) and (src in REGIDX):
-                # r, (ix+o)
-                self.add_line(mem_shortcut())
-                todo, r = read_idx(src, mem='mem')
-                self.add_lines(todo)
-                # self.gen(dst, src)
-                skip_gen = True
-                self.add_lines(write_reg8(dst, r, False))
-            elif (dst in REGIDX) and (src in REG8):
-                # (ix+o), r
-                self.add_line(mem_shortcut())
-                self.add_lines(write_idx(dst, read_reg8(src), 'mem'))
-                skip_gen = True
-            else:
-                raise SyntaxError('%s: invalid pair %s, %s' % (self.__class__.__name__, dst, src))
-        
-        if not skip_gen:
-            self.gen(dst, src)
+        self.gen(dst, src, op)
         ret += [IDENT + x for x in self.do] # add commands
         return make_code(code, ret, table)
+
+    def arg1(self, src):
+        if src in REG8:
+            # r
+            self.args['r'] = read_reg8(src)
+        elif src in REG16:
+            # rr
+            self.args['rr'] = read_reg16(src)
+        elif self.src in REG16IND:
+            # rr
+            self.args['r'] = read(read_reg16(src[1:-1]))
+        elif src in REGIDX:
+            # (ix+o)
+            self.do.append(mem_shortcut())
+            todo, r = read_idx(self.src, mem='mem')
+            self.do += todo
+            self.args['r'] = r
+        elif src == '#':
+            # n
+            self.do += read_op()
+            self.args['r'] = 'tmp8'
+        # elif src == '@':
+        #     # n
+        #     self.do += read_op16()
+        #     self.args['rr'] = 'tmp16'
+        else:
+            raise SyntaxError('%s: invalid operand %s' % (self.__class__.__name__, src))
+
+    def arg2_16(self, dst, src):
+        if (dst in REG16) and (src in REG16):
+            # rr,rr1
+            self.args['rr'] = read_reg16(dst)
+            self.args['rr1'] = read_reg16(src)
+        else:
+            raise SyntaxError('%s: invalid pair %s, %s' % (self.__class__.__name__, dst, src))
+
+    def arg2(self, dst, src):
+        if (dst in (REG8 + REG8_SPEC)) and (src in REG8):
+            # r,r1
+            self.args['r'] = read_reg8(dst)
+            self.args['r1'] = read_reg8(src)
+        elif (dst in REG8) and (src in (REG8 + REG8_SPEC)):
+            # r,r1
+            self.args['r'] = read_reg8(dst)
+            self.args['r1'] = read_reg8(src)
+        elif (dst in REG8) and (src in REG16IND):
+            # r, (rr)
+            self.args['r'] = read_reg8(dst)
+            self.args['r1'] = read(read_reg16(src[1:-1]))
+        elif (dst in REG8) and (src in REGIDX):
+            # r,(ix+o)
+            self.args['r'] = read_reg8(dst)
+            self.add_line(mem_shortcut())
+            todo, r = read_idx(src, mem='mem')
+            self.add_lines(todo)
+            self.add_line('tmp8 = %(r)s' % locals())
+            self.args['r1'] = 'tmp8'
+        elif (dst in REG8) and (src == '#'):
+            # r,n
+            self.args['r'] = read_reg8(dst)
+            self.add_lines(read_op())
+            self.args['r1'] = 'tmp8'
+        else:
+            raise SyntaxError('%s: invalid pair %s, %s' % (self.__class__.__name__, dst, src))
     
-    def add_line(self, line):
+    
+    def arg_bit(self, dst, src):
+        if (dst in BIT_NUMBERS) and (src in REG8):
+            # [0-8],n
+            self.args['r'] = dst
+            self.args['r1'] = read_reg8(src)
+        elif (dst in BIT_NUMBERS) and (src in REG16IND):
+            # [0-8], (rr)
+            self.args['r'] = dst
+            self.args['r1'] = read(read_reg16(src[1:-1]))
+        else:
+            raise SyntaxError('%s: invalid pair %s, %s' % (self.__class__.__name__, dst, src))
+        
+    def add_t(self, t, ident=1):
+        self.add_lines([
+            ICOUNT % t,
+            ITOTAL % t,
+        ], ident)
+
+    # def __call__(self, code, op, table=None):
+    #     self.do = []
+    #     
+    #     ret = std_head(code, op, table)
+    #     self.__param(op) # prepare operands
+    #     
+    #     dst, src = self.dst, self.src # shortcut
+    #     self.setup(dst, src) # misc stuff
+    #     skip_gen = False
+    #     
+    #     # the big bad switch^2 ;)
+    #     if (dst is None) and (src is None):
+    #         pass # no operands
+    #     elif dst is None:
+    #         # 1 operand
+    #         if src in REG8:
+    #             # r
+    #             self.args['r'] = read_reg8(src)
+    #         elif src in REG16:
+    #             # rr
+    #             self.args['rr'] = read_reg16(src)
+    #         elif self.src in REG16IND:
+    #             # rr
+    #             self.args['r'] = read(read_reg16(src[1:-1]))
+    #         elif src in REGIDX:
+    #             # (ix+o)
+    #             self.do.append(mem_shortcut())
+    #             todo, r = read_idx(self.src, mem='mem')
+    #             self.do += todo
+    #             self.args['r'] = r
+    #         elif src == '#':
+    #             # n
+    #             self.do += read_op()
+    #             self.args['r'] = 'tmp8'
+    #         else:
+    #             raise SyntaxError('%s: invalid operand %s' % (self.__class__.__name__, src))
+    #     else:
+    #         # 2 operands
+    #         if (dst in (REG8 + REG8_SPEC)) and (src in REG8):
+    #             # r,r1
+    #             self.args['r'] = read_reg8(dst)
+    #             self.args['r1'] = read_reg8(src)
+    #         elif (dst in REG8) and (src in (REG8 + REG8_SPEC)):
+    #             # r,r1
+    #             self.args['r'] = read_reg8(dst)
+    #             self.args['r1'] = read_reg8(src)
+    #         elif (dst in REG8) and (src in REG16IND):
+    #             # r, (rr)
+    #             self.args['r'] = read_reg8(dst)
+    #             # self.add_line('tmp8 = %s' % read(read_reg16(src[1:-1])))
+    #             self.args['r1'] = read(read_reg16(src[1:-1]))
+    #         elif (dst in REG8) and (src in REGIDX):
+    #             # r,(ix+o)
+    #             self.args['r'] = read_reg8(dst)
+    #             self.add_line(mem_shortcut())
+    #             todo, r = read_idx(src, mem='mem')
+    #             self.add_lines(todo)
+    #             self.add_line('tmp8 = %(r)s' % locals())
+    #             self.args['r1'] = 'tmp8'
+    #         elif (dst in REG8) and (src == '#'):
+    #             # r,n
+    #             self.args['r'] = read_reg8(dst)
+    #             self.add_lines(read_op(store_to=self.args['r']))
+    #             self.args['r1'] = 'tmp8'
+    #             # self.gen(dst, src)
+    #             skip_gen = True
+    #         elif (dst in BIT_NUMBERS) and (src in REG8):
+    #             # [0-8],n
+    #             self.args['r'] = dst
+    #             self.args['r1'] = read_reg8(src)
+    #         elif (dst in BIT_NUMBERS) and (src in REG16IND):
+    #             # [0-8], (rr)
+    #             self.args['r'] = dst
+    #             # self.add_line('tmp8 = %s' % read(read_reg16(src[1:-1])))
+    #             self.args['r1'] = read(read_reg16(src[1:-1]))
+    #         elif (dst in REG16) and (src in REG16):
+    #             # rr,rr1
+    #             self.args['rr'] = read_reg16(dst)
+    #             self.args['rr1'] = read_reg16(src)
+    #         elif (dst in REG16) and (src == '@'):
+    #             # rr,nnnn
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(read_op16(mem='mem', store_to=read_reg16(dst)))
+    #             self.args['rr1'] = 'tmp16'
+    #             # self.gen(dst, src)
+    #             skip_gen = True
+    #         elif (dst in REG16) and (src == '(@)'):
+    #             # rr, (nnnn)
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(read_op16('mem'))
+    #             self.args['rr'] = read_reg16(dst)
+    #             self.args['rr1'] = read16('tmp16')
+    #         elif (dst in REG16IND) and (src in REG8):
+    #             # (rr), r
+    #             self.args['r1'] = read_reg8(src)
+    #             self.gen(dst, src)
+    #             skip_gen = True
+    #             self.add_lines(write(self.args['rr'], self.args['r1']))
+    #         elif (dst in REG16IND) and (src == '#'):
+    #             # (rr), nn
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(read_op('mem'))
+    #             self.args['r1'] = 'tmp8'
+    #             self.gen(dst, src)
+    #             skip_gen = True
+    #             self.add_lines(write(self.args['rr'], 'tmp8', 'mem'))
+    #         elif (dst == '(@)') and (src in REG16):
+    #             # (nnnn), rr
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(read_op16('mem'))
+    #             self.args['rr1'] = read_reg16(src)
+    #             self.args['rr'] = 'tmp16'
+    #             # self.gen(dst, src)
+    #             skip_gen = True
+    #             self.add_lines(write16(self.args['rr'], self.args['rr1'], 'mem'))
+    #         elif (dst == '(@)') and (src in REG8):
+    #             # (nnnn), r
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(read_op16('mem'))
+    #             self.add_lines(write('tmp16', read_reg8(src), 'mem'))
+    #             skip_gen = True
+    #         elif (dst in REG8) and (src == '(@)'):
+    #             # r, (nnnn)
+    #             self.add_lines(read_op16())
+    #             self.args['r'] = read_reg8(dst)
+    #             self.args['r1'] = read('tmp16')
+    #         elif (dst in REGIDX) and (src == '#'):
+    #             # (ix+o), nn
+    #             self.args['r1'] = 'tmp8'
+    #             reg = 'ix' if 'ix' in dst else 'iy'
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(read_op('mem') + to_signed('tmp8'))
+    #             self.add_line('tmp16 = ' + read_reg16(reg) + ' + tmp8')
+    #             self.add_lines(read_op('mem'))
+    #             skip_gen = True
+    #             self.add_lines(write('tmp16', 'tmp8', 'mem'))
+    #         elif (dst in REG8) and (src in REGIDX):
+    #             # r, (ix+o)
+    #             self.add_line(mem_shortcut())
+    #             todo, r = read_idx(src, mem='mem')
+    #             self.add_lines(todo)
+    #             # self.gen(dst, src)
+    #             skip_gen = True
+    #             self.add_lines(write_reg8(dst, r, False))
+    #         elif (dst in REGIDX) and (src in REG8):
+    #             # (ix+o), r
+    #             self.add_line(mem_shortcut())
+    #             self.add_lines(write_idx(dst, read_reg8(src), 'mem'))
+    #             skip_gen = True
+    #         else:
+    #             raise SyntaxError('%s: invalid pair %s, %s' % (self.__class__.__name__, dst, src))
+    #     
+    #     if not skip_gen:
+    #         self.gen(dst, src)
+    #     ret += [IDENT + x for x in self.do] # add commands
+    #     return make_code(code, ret, table)
+    
+    def add_line(self, line, ident=1):
         assert isinstance(line, basestring)
-        self.do.append(self.format(line))
+        if ident == 1:
+            self.do.append(self.format(line))
+        else:
+            ident -= 1
+            self.do.append('%s%s' % (IDENT*ident, self.format(line)))
     
-    def add_lines(self, lines):
+    def add_lines(self, lines, ident=1):
         assert isinstance(lines, (list, tuple))
-        self.do += lines
+        if ident == 1:
+            self.do += lines
+        else:
+            ident -= 1
+            self.do += ['%s%s' % (IDENT*ident, l) for l in lines]
     
     def add_arg(self, arg, val):
         self.args[arg] = val
