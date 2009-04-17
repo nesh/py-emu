@@ -41,19 +41,24 @@ VZSF = VF | ZF | SF
 CXYF = CF | XF | YF
 
 SZXY_TABLE = None
+SZ_TABLE = None
+SZP_TABLE = None
 SZXYP_TABLE = None
 PARITY_TABLE = None
 
 def _init_tables():
-    global SZXY_TABLE, SZXYP_TABLE, PARITY_TABLE
+    global SZXY_TABLE, SZXYP_TABLE, PARITY_TABLE, SZ_TABLE, SZP_TABLE
     
     if PARITY_TABLE is not None: return
     
     SZXY_TABLE = []
+    SZ_TABLE = []
+    SZP_TABLE = []
     SZXYP_TABLE = []
     PARITY_TABLE = []
     
     for i in range(0, 0x100):
+        SZ_TABLE.append(i & SF)
         SZXY_TABLE.append(i & XYSF)
         j = i
         parity = 0
@@ -63,9 +68,11 @@ def _init_tables():
             j >>= 1
         PARITY_TABLE.append(0 if parity else PF)
         SZXYP_TABLE.append(SZXY_TABLE[i] | PARITY_TABLE[i])
+        SZP_TABLE.append(SZ_TABLE[i] | PARITY_TABLE[i])
     
     SZXYP_TABLE[0] |= ZF
     SZXY_TABLE[0] |= ZF
+    SZ_TABLE[0] |= ZF
     
     # small speedup
     SZXY_TABLE = tuple(SZXY_TABLE)

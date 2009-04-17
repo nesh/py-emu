@@ -119,6 +119,11 @@ def write16(where, what, mem=state('mem')):
         '%(mem)s.write((%(where)s) + 1, %(what)s / 256)' % locals()
     ]
 
+def io_write(port, what, io=state('io')):
+    return ['%(io)s.write(%(port)s, %(what)s)' % locals()]
+
+def io_read(port, io=state('io')):
+    return '%(io)s.read(%(port)s)' % locals()
 
 def pop_reg(reg, mem=state('mem')):
     if reg in ('ix', 'iy', 'pc'):
@@ -193,6 +198,8 @@ class GenOp(object):
         self.add_arg('IFF2', state('iff2'))
         self.add_arg('IM', state('im'))
         self.add_arg('MEMPTR', state('memptr'))
+        self.add_arg('MEMPTRH', state('memptr_h'))
+        self.add_arg('MEMPTRL', state('memptr_l'))
     
     def __call__(self, code, op, table=None):
         self.do = []

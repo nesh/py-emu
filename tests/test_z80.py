@@ -230,7 +230,6 @@ def _cpu_test(code, data):
     oldcpu = str(cpu)
     start_pc = cpu.pc
     run_for = data.test_in['icount']
-    what = cpu.disassemble(0, bytes=len(data.test_in['mem'][start_pc]))
     try:
         ret = cpu.run(run_for)
         
@@ -238,8 +237,16 @@ def _cpu_test(code, data):
         for reg, val in data.test_out['regs'].items():
             r = getattr(cpu, reg)
             if reg == 'af':
-                assert r == val, '%s(%04X) != %04X (F: e:%s != g:%s)' %\
-                                 (reg, r, val, cpu.flags_as_str(r & 0xFF), cpu.flags_as_str(val & 0xFF))
+                # assert r == val, '%s %04X != %04X (e: %s g: %s)' %\
+                #                  (reg, r, val,
+                #                  cpu.flags_as_str(r & 0xFF),
+                #                  cpu.flags_as_str(val & 0xFF))
+                lo = val & 0xFF
+                hi = (val & 0xFF00) >> 8
+                assert cpu.a == hi, 'A G: %02X E: %02X' % (cpu.a, hi)
+                assert cpu.f == lo, 'F G: %s (%02X) E: %s (%02X)' % (
+                            cpu.flags_as_str(cpu.f), cpu.f,
+                            cpu.flags_as_str(lo), lo)
             else:
                 assert r == val, '%s(%04X) != %04X' % (reg, r, val)
         
@@ -251,17 +258,26 @@ def _cpu_test(code, data):
         
         # check T
         assert data.test_out['icount'] == cpu.itotal, 'T-states expeced %d, got %d' % (data.test_out['icount'], cpu.itotal)
-    except AssertionError:
+    except CPUTrapInvalidOP:
+        pass
+    except Exception:
         print
         print oldcpu
         print cpu.disassemble(0, bytes=len(data.test_in['mem'][start_pc]))
+        for a, m in data.test_in['mem'].items():
+            print '%04X: %s' % (a, ['%02X' % b for b in m])
         print '='*50
         print 'Test: %X' % code
         print 'req %dT used %dT overflow %dT' % (run_for, cpu.itotal, -cpu.icount)
         print cpu
-        print
-        for a, m in data.test_in['mem'].items():
-            print '%04X: %s' % (a, ['%02X' % b for b in m])
+        for a, m in data.test_out['mem'].items():
+            # print '%04X: %s' % (a, ['%02X' % b for b in m])
+            print '%04X' % a,
+            i = 0
+            for b in m:
+                print 'e: %02X g: %02X' % (b, cpu.read(a + i)),
+                i += 1
+            print
         raise
 
 

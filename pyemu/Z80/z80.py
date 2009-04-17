@@ -220,3 +220,19 @@ class Z80(CPU):
         def fset(self, val):
             self.pc = (self.pc & 0xFF00) | (val & 0xFF)
         return locals()
+
+    @Property
+    def memptr_h():
+        def fget(self):
+            return (self.memptr & 0xFF00) / 256
+        def fset(self, val):
+            self.memptr = (self.memptr & 0x00FF) | ((val & 0xFF) * 256)
+        return locals()
+    
+    @Property
+    def memptr_l():
+        def fget(self):
+            return self.memptr & 0xFF
+        def fset(self, val):
+            self.memptr = (self.memptr & 0xFF00) | (val & 0xFF)
+        return locals()

@@ -91,6 +91,15 @@ def test_hl():
     cpu.l = 0x22
     assert cpu.hl == 0x1122, '%04X' % cpu.hl
 
+def test_pc():
+    """ Z80: test pc """
+    cpu.pc = 0x1234
+    assert cpu.pch == 0x12
+    assert cpu.pcl == 0x34
+    cpu.pch = 0x11
+    cpu.pcl = 0x22
+    assert cpu.pc == 0x1122, '%04X' % cpu.pc
+
 def test_ix():
     """ Z80: test ix """
     cpu.ix = 0x1234
