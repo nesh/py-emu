@@ -2,9 +2,13 @@
 *.pyc
 *.pyo
 *.log
+
 # private data dir
 private
 * copy.py
 *.log-psyco
 
 env/
+
+# komodo
+*.kpf
